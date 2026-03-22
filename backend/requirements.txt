@@ -5,5 +5,4 @@ matplotlib
 seaborn
 python-multipart
 google-generativeai
-google-genai==1.7.0
 python-dotenv
