@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --bg-primary: #0f1117;
@@ -16,38 +18,42 @@
 
 @layer base {
   * {
-    @apply font-sans;
+    font-family: 'Inter', sans-serif;
   }
 
   html {
-    @apply h-full;
+    height: 100%;
   }
 
   body {
-    @apply h-full bg-[#0f1117] text-[#ffffff];
+    height: 100%;
+    background-color: #0f1117;
+    color: #ffffff;
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   #root {
-    @apply h-full;
+    height: 100%;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-bold;
+    font-weight: bold;
   }
 
   a {
-    @apply text-[#6c63ff] hover:text-[#00d4ff] transition-colors;
+    color: #6c63ff;
+    transition: color 0.3s;
+  }
+
+  a:hover {
+    color: #00d4ff;
   }
 }
 
 @layer components {
-  /* ===========================
-     Animations
-     =========================== */
-
+  /* Animations */
   @keyframes spin-smooth {
     to { transform: rotate(360deg); }
   }
@@ -105,10 +111,7 @@
     animation: slide-up 0.6s ease-out;
   }
 
-  /* ===========================
-     Utilities
-     =========================== */
-
+  /* Utilities */
   .gradient-purple-cyan {
     background: linear-gradient(135deg, #6c63ff 0%, #00d4ff 100%);
   }
@@ -130,47 +133,60 @@
     box-shadow: 0 0 20px rgba(108, 99, 255, 0.2);
   }
 
-  /* ===========================
-     Buttons
-     =========================== */
-
+  /* Buttons */
   .btn {
-    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-300 cursor-pointer;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    cursor: pointer;
     font-family: 'Inter', sans-serif;
   }
 
   .btn-primary {
-    @apply bg-gradient-to-r from-[#6c63ff] to-[#6c63ff] text-white font-semibold;
+    background: linear-gradient(135deg, #6c63ff 0%, #6c63ff 100%);
+    color: white;
     box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
   }
 
   .btn-primary:hover:not(:disabled) {
-    @apply from-[#5a52d5] to-[#5a52d5];
+    background: linear-gradient(135deg, #5a52d5 0%, #5a52d5 100%);
     box-shadow: 0 8px 25px rgba(108, 99, 255, 0.5);
     transform: translateY(-2px);
   }
 
   .btn-primary:disabled {
-    @apply opacity-50 cursor-not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .btn-secondary {
-    @apply border-2 border-[#6c63ff] text-[#6c63ff] bg-transparent font-semibold;
+    border: 2px solid #6c63ff;
+    color: #6c63ff;
+    background: transparent;
+    font-weight: 600;
     transition: all 0.3s;
   }
 
   .btn-secondary:hover:not(:disabled) {
-    @apply bg-[#6c63ff] text-white;
+    background: #6c63ff;
+    color: white;
     box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
     transform: translateY(-2px);
   }
 
   .btn-secondary:disabled {
-    @apply opacity-50 cursor-not-allowed border-[#4a4757];
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #4a4757;
   }
 
   .btn-reset {
-    @apply bg-gradient-to-r from-[#6c63ff] to-[#00d4ff] text-white font-semibold text-lg px-8 py-4;
+    background: linear-gradient(135deg, #6c63ff 0%, #00d4ff 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 1.125rem;
+    padding: 1rem 2rem;
     box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
   }
 
@@ -179,18 +195,17 @@
     transform: translateY(-2px);
   }
 
-  /* ===========================
-     Cards
-     =========================== */
-
+  /* Cards */
   .card {
-    @apply p-6 rounded-xl;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
     background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
   }
 
   .card-hover {
-    @apply card cursor-pointer transition-all duration-300;
+    cursor: pointer;
+    transition: all 0.3s;
   }
 
   .card-hover:hover {
@@ -199,46 +214,121 @@
     transform: translateY(-4px);
   }
 
-  /* ===========================
-     Stat card
-     =========================== */
+  .card-content {
+    margin-top: 1rem;
+  }
 
+  .card-text {
+    color: #8b8fa8;
+    line-height: 1.6;
+  }
+
+  .card-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .list-item {
+    color: #8b8fa8;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .list-item::before {
+    content: '▹';
+    color: #6c63ff;
+    font-weight: bold;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+  }
+
+  /* Stat card */
   .stat-card {
-    @apply card text-center p-4;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    text-align: center;
   }
 
   .stat-value {
-    @apply text-3xl font-bold text-[#00d4ff];
+    font-size: 1.875rem;
+    font-weight: bold;
+    color: #00d4ff;
   }
 
   .stat-label {
-    @apply text-sm text-[#8b8fa8] mt-2 uppercase tracking-wide;
+    font-size: 0.875rem;
+    color: #8b8fa8;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
-  /* ===========================
-     Badges
-     =========================== */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
 
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stats-section {
+    margin-bottom: 2rem;
+  }
+
+  .stats-section-title {
+    color: #00d4ff;
+    font-weight: bold;
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Badges */
   .badge {
-    @apply inline-block px-4 py-2 rounded-full font-semibold text-sm;
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.875rem;
   }
 
   .badge-success {
-    @apply bg-[#00c896]/20 text-[#00c896];
+    background-color: rgba(0, 200, 150, 0.2);
+    color: #00c896;
   }
 
   .badge-info {
-    @apply bg-[#6c63ff]/20 text-[#6c63ff];
+    background-color: rgba(108, 99, 255, 0.2);
+    color: #6c63ff;
   }
 
   .badge-filename {
-    @apply bg-[#00c896]/20 text-[#00c896] px-4 py-2 rounded-full inline-flex items-center gap-2;
+    background-color: rgba(0, 200, 150, 0.2);
+    color: #00c896;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  /* ===========================
-     Spinner
-     =========================== */
+  .filename-text {
+    font-weight: 600;
+  }
 
+  /* Spinner */
   .spinner {
     width: 50px;
     height: 50px;
@@ -248,50 +338,96 @@
     animation: spin-smooth 1s linear infinite;
   }
 
-  /* ===========================
-     Insights card
-     =========================== */
-
+  /* Insights card */
   .insight-card {
-    @apply card-hover border-l-4;
-    border-left-color: var(--accent-primary) !important;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-primary);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .insight-card:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 20px rgba(108, 99, 255, 0.15);
+    transform: translateY(-4px);
   }
 
   .insight-title {
-    @apply text-[#00d4ff] font-bold text-lg mb-4;
+    color: #00d4ff;
+    font-weight: bold;
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
   }
 
   .insight-text {
-    @apply text-[#8b8fa8] leading-relaxed;
+    color: #8b8fa8;
+    line-height: 1.6;
   }
 
   .insight-list {
-    @apply list-none space-y-2;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
   .insight-item {
-    @apply text-[#8b8fa8] flex items-start gap-3;
+    color: #8b8fa8;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 
   .insight-item::before {
     content: '▹';
-    @apply text-[#6c63ff] font-bold flex-shrink-0 mt-0.5;
+    color: #6c63ff;
+    font-weight: bold;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
   }
 
-  /* ===========================
-     Chart section
-     =========================== */
+  /* Chart section */
+  .chart-section {
+    margin-bottom: 2rem;
+  }
+
+  .chart-subsection-title {
+    color: #00d4ff;
+    font-weight: bold;
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
 
   .chart-card {
-    @apply card;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+  }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
   }
 
   .chart-label {
-    @apply text-sm font-semibold text-[#00d4ff] mb-4;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #00d4ff;
+    margin-bottom: 1rem;
   }
 
   .chart-image {
-    @apply w-full h-auto rounded-lg;
+    width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
   }
 }
+
 
