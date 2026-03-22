@@ -1,5 +1,3 @@
-import '../styles/StatsTable.css';
-
 export default function StatsTable({ stats }) {
   if (!stats) {
     return null;
@@ -7,70 +5,53 @@ export default function StatsTable({ stats }) {
 
   return (
     <div className="stats-table-container">
-      {/* Shape */}
+      {/* Shape - 3 Card Grid */}
       {stats.shape && (
-        <div className="stats-section">
-          <h3 className="stats-title">Dataset Shape</h3>
-          <table className="stats-table">
-            <tbody>
-              <tr>
-                <td className="label">Rows</td>
-                <td className="value">{stats.shape.rows.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td className="label">Columns</td>
-                <td className="value">{stats.shape.columns}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="stats-row">
+          <div className="stat-card">
+            <p className="stat-label">Rows</p>
+            <p className="stat-value">{stats.shape.rows.toLocaleString()}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-label">Columns</p>
+            <p className="stat-value">{stats.shape.columns}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-label">Size</p>
+            <p className="stat-value">{(stats.shape.rows * stats.shape.columns).toLocaleString()}</p>
+          </div>
         </div>
       )}
 
       {/* Data Types */}
       {stats.dtypes && (
         <div className="stats-section">
-          <h3 className="stats-title">Column Data Types</h3>
-          <table className="stats-table">
-            <thead>
-              <tr>
-                <th>Column</th>
-                <th>Data Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(stats.dtypes).map(([col, dtype]) => (
-                <tr key={col}>
-                  <td className="label">{col}</td>
-                  <td className="value">{dtype}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h3 className="stats-section-title">Column Data Types</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.entries(stats.dtypes).map(([col, dtype]) => (
+              <div key={col} className="stat-card">
+                <p className="stat-label truncate">{col}</p>
+                <p className="stat-value text-sm">{dtype}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Missing Values */}
       {stats.missing_values && Object.values(stats.missing_values).some(v => v > 0) && (
         <div className="stats-section">
-          <h3 className="stats-title">Missing Values</h3>
-          <table className="stats-table">
-            <thead>
-              <tr>
-                <th>Column</th>
-                <th>Missing Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(stats.missing_values)
-                .filter(([, count]) => count > 0)
-                .map(([col, count]) => (
-                  <tr key={col}>
-                    <td className="label">{col}</td>
-                    <td className="value">{count}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          <h3 className="stats-section-title">Missing Values</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.entries(stats.missing_values)
+              .filter(([, count]) => count > 0)
+              .map(([col, count]) => (
+                <div key={col} className="stat-card">
+                  <p className="stat-label truncate">{col}</p>
+                  <p className="stat-value">{count}</p>
+                </div>
+              ))}
+          </div>
         </div>
       )}
     </div>

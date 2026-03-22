@@ -1,205 +1,297 @@
-/* ===========================
-   Global Dark Theme Variables
-   =========================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
 
 :root {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --accent: #3b82f6;
-  --accent-dark: #1e40af;
-  --accent-light: #60a5fa;
-  --border: #475569;
-  --success: #10b981;
-  --error: #ef4444;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-
-  --sans: system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --mono: ui-monospace, 'Menlo', 'Monaco', 'Courier New', monospace;
-
-  font-family: var(--sans);
-  font-size: 16px;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --bg-primary: #0f1117;
+  --bg-surface: #1a1d27;
+  --border-color: #2a2d3e;
+  --accent-primary: #6c63ff;
+  --accent-secondary: #00d4ff;
+  --text-primary: #ffffff;
+  --text-secondary: #8b8fa8;
+  --success-green: #00c896;
+  --error-red: #ff4d6d;
 }
 
-/* ===========================
-   Global Styles
-   =========================== */
-
-*,
-*::before,
-*::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html,
-body {
-  width: 100%;
-  height: 100%;
-}
-
-body {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-  color: var(--text-primary);
-  line-height: 1.5;
-}
-
-#root {
-  width: 100%;
-  height: 100%;
-}
-
-/* ===========================
-   Typography
-   =========================== */
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-weight: 700;
-  line-height: 1.2;
-  margin-bottom: 0.5rem;
-}
-
-h1 {
-  font-size: 2.5rem;
-}
-
-h2 {
-  font-size: 2rem;
-}
-
-h3 {
-  font-size: 1.5rem;
-}
-
-h4 {
-  font-size: 1.25rem;
-}
-
-h5 {
-  font-size: 1.1rem;
-}
-
-h6 {
-  font-size: 1rem;
-}
-
-p {
-  margin-bottom: 1rem;
-  color: var(--text-secondary);
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: var(--accent-light);
-}
-
-code {
-  font-family: var(--mono);
-  background: var(--bg-secondary);
-  color: var(--accent-light);
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-size: 0.9em;
-}
-
-/* ===========================
-   Form Elements
-   =========================== */
-
-button {
-  font-family: var(--sans);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-input,
-textarea,
-select {
-  font-family: var(--sans);
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* ===========================
-   Scrollbar Styling
-   =========================== */
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
-}
-
-/* ===========================
-   Responsive Typography
-   =========================== */
-
-@media (max-width: 768px) {
-  h1 {
-    font-size: 2rem;
+@layer base {
+  * {
+    @apply font-sans;
   }
 
-  h2 {
-    font-size: 1.5rem;
+  html {
+    @apply h-full;
   }
 
-  h3 {
-    font-size: 1.25rem;
+  body {
+    @apply h-full bg-[#0f1117] text-[#ffffff];
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  h4 {
-    font-size: 1.1rem;
+  #root {
+    @apply h-full;
   }
 
-  h5,
-  h6 {
-    font-size: 1rem;
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
   }
 
-  :root {
-    font-size: 14px;
+  a {
+    @apply text-[#6c63ff] hover:text-[#00d4ff] transition-colors;
   }
 }
+
+@layer components {
+  /* ===========================
+     Animations
+     =========================== */
+
+  @keyframes spin-smooth {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes glow {
+    0%, 100% {
+      border-color: #6c63ff;
+      box-shadow: 0 0 0 0 rgba(108, 99, 255, 0);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(108, 99, 255, 0.1);
+    }
+  }
+
+  .animate-spin-smooth {
+    animation: spin-smooth 1s linear infinite;
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out;
+  }
+
+  /* ===========================
+     Utilities
+     =========================== */
+
+  .gradient-purple-cyan {
+    background: linear-gradient(135deg, #6c63ff 0%, #00d4ff 100%);
+  }
+
+  .gradient-text-purple-cyan {
+    background: linear-gradient(135deg, #6c63ff 0%, #00d4ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-glow {
+    border: 1px solid var(--border-color);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .border-glow:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 20px rgba(108, 99, 255, 0.2);
+  }
+
+  /* ===========================
+     Buttons
+     =========================== */
+
+  .btn {
+    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-300 cursor-pointer;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-[#6c63ff] to-[#6c63ff] text-white font-semibold;
+    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    @apply from-[#5a52d5] to-[#5a52d5];
+    box-shadow: 0 8px 25px rgba(108, 99, 255, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply border-2 border-[#6c63ff] text-[#6c63ff] bg-transparent font-semibold;
+    transition: all 0.3s;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    @apply bg-[#6c63ff] text-white;
+    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary:disabled {
+    @apply opacity-50 cursor-not-allowed border-[#4a4757];
+  }
+
+  .btn-reset {
+    @apply bg-gradient-to-r from-[#6c63ff] to-[#00d4ff] text-white font-semibold text-lg px-8 py-4;
+    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+  }
+
+  .btn-reset:hover {
+    box-shadow: 0 8px 25px rgba(108, 99, 255, 0.5);
+    transform: translateY(-2px);
+  }
+
+  /* ===========================
+     Cards
+     =========================== */
+
+  .card {
+    @apply p-6 rounded-xl;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+  }
+
+  .card-hover {
+    @apply card cursor-pointer transition-all duration-300;
+  }
+
+  .card-hover:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 20px rgba(108, 99, 255, 0.15);
+    transform: translateY(-4px);
+  }
+
+  /* ===========================
+     Stat card
+     =========================== */
+
+  .stat-card {
+    @apply card text-center p-4;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold text-[#00d4ff];
+  }
+
+  .stat-label {
+    @apply text-sm text-[#8b8fa8] mt-2 uppercase tracking-wide;
+  }
+
+  /* ===========================
+     Badges
+     =========================== */
+
+  .badge {
+    @apply inline-block px-4 py-2 rounded-full font-semibold text-sm;
+  }
+
+  .badge-success {
+    @apply bg-[#00c896]/20 text-[#00c896];
+  }
+
+  .badge-info {
+    @apply bg-[#6c63ff]/20 text-[#6c63ff];
+  }
+
+  .badge-filename {
+    @apply bg-[#00c896]/20 text-[#00c896] px-4 py-2 rounded-full inline-flex items-center gap-2;
+  }
+
+  /* ===========================
+     Spinner
+     =========================== */
+
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(108, 99, 255, 0.1);
+    border-top: 4px solid #6c63ff;
+    border-radius: 50%;
+    animation: spin-smooth 1s linear infinite;
+  }
+
+  /* ===========================
+     Insights card
+     =========================== */
+
+  .insight-card {
+    @apply card-hover border-l-4;
+    border-left-color: var(--accent-primary) !important;
+  }
+
+  .insight-title {
+    @apply text-[#00d4ff] font-bold text-lg mb-4;
+  }
+
+  .insight-text {
+    @apply text-[#8b8fa8] leading-relaxed;
+  }
+
+  .insight-list {
+    @apply list-none space-y-2;
+  }
+
+  .insight-item {
+    @apply text-[#8b8fa8] flex items-start gap-3;
+  }
+
+  .insight-item::before {
+    content: '▹';
+    @apply text-[#6c63ff] font-bold flex-shrink-0 mt-0.5;
+  }
+
+  /* ===========================
+     Chart section
+     =========================== */
+
+  .chart-card {
+    @apply card;
+  }
+
+  .chart-label {
+    @apply text-sm font-semibold text-[#00d4ff] mb-4;
+  }
+
+  .chart-image {
+    @apply w-full h-auto rounded-lg;
+  }
+}
+

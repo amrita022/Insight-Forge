@@ -72,8 +72,10 @@ function App() {
       {/* Header */}
       <header className="app-header">
         <div className="header-content">
-          <h1 className="app-title">Insight Forge</h1>
-          <p className="app-subtitle">AI-Powered Exploratory Data Analysis</p>
+          <h1 className="app-title">
+            <span className="lightning-bolt">⚡</span> Insight Forge
+          </h1>
+          <p className="app-subtitle">Exploratory Data Analysis powered by Gemini AI</p>
         </div>
       </header>
 
@@ -94,7 +96,7 @@ function App() {
             {loading && (
               <div className="loading-state">
                 <div className="spinner"></div>
-                <p className="loading-text">Analyzing your dataset...</p>
+                <p className="loading-text">Analyzing your dataset with Gemini AI...</p>
               </div>
             )}
 
@@ -106,11 +108,11 @@ function App() {
             {/* Results State */}
             <div className="results-container">
               {/* Mode Badge */}
-              <div className="mode-badge">
+              <div className={`mode-badge ${mode === 'baseline' ? 'baseline' : 'structured'}`}>
                 {mode === 'baseline' ? 'Baseline Analysis' : 'Structured Analysis'}
               </div>
 
-              {/* Stats Table */}
+              {/* Stats Cards */}
               {results.stats && <StatsTable stats={results.stats} />}
 
               {/* Insight Cards */}

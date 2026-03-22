@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import '../styles/UploadZone.css';
 
 export default function UploadZone({ onAnalyze, onBaseline, file, isLoading, onFileSelect }) {
   const [isDragActive, setIsDragActive] = useState(false);
@@ -63,27 +62,22 @@ export default function UploadZone({ onAnalyze, onBaseline, file, isLoading, onF
           type="file"
           accept=".csv"
           onChange={handleChange}
-          className="file-input"
+          className="hidden"
         />
         
         <div className="upload-content">
-          <svg className="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p className="upload-text">
-            Drag and drop your CSV file here
-            <br />
-            or click to browse
-          </p>
+          <div className="upload-icon">☁️</div>
+          <div>
+            <p className="upload-text">Drop your CSV file here</p>
+            <p className="upload-text-secondary">or click to browse</p>
+          </div>
         </div>
       </div>
 
       {file && (
         <div className="file-selected">
-          <svg className="check-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-          </svg>
-          <span className="filename">{file.name}</span>
+          <span>✓</span>
+          <span className="filename-text">{file.name}</span>
         </div>
       )}
 
@@ -91,14 +85,14 @@ export default function UploadZone({ onAnalyze, onBaseline, file, isLoading, onF
         <button
           onClick={() => onAnalyze(file)}
           disabled={!file || isLoading}
-          className="btn btn-primary"
+          className="btn btn-primary flex-1 min-w-[200px]"
         >
-          {isLoading ? 'Analyzing...' : 'Analyze with Insight Forge'}
+          {isLoading ? 'Analyzing...' : 'Analyze with AI'}
         </button>
         <button
           onClick={() => onBaseline(file)}
           disabled={!file || isLoading}
-          className="btn btn-secondary"
+          className="btn btn-secondary flex-1 min-w-[200px]"
         >
           {isLoading ? 'Analyzing...' : 'Baseline Analysis'}
         </button>

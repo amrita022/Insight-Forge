@@ -1,19 +1,17 @@
-import '../styles/ChartPanel.css';
-
 export default function ChartPanel({ charts }) {
   if (!charts) {
     return null;
   }
 
   return (
-    <div className="chart-panel">
+    <div className="space-y-8">
       {/* Distribution Charts */}
       {charts.distributions && charts.distributions.length > 0 && (
         <div className="chart-section">
-          <h3 className="section-title">Distribution Analysis</h3>
+          <h3 className="chart-subsection-title">Distribution Analysis</h3>
           <div className="chart-grid">
             {charts.distributions.map((chart, index) => (
-              <div key={index} className="chart-item">
+              <div key={index} className="chart-card">
                 <p className="chart-label">{chart.column}</p>
                 <img
                   src={`data:image/png;base64,${chart.image}`}
@@ -29,8 +27,8 @@ export default function ChartPanel({ charts }) {
       {/* Correlation Heatmap */}
       {charts.correlation && (
         <div className="chart-section">
-          <h3 className="section-title">Correlation Matrix</h3>
-          <div className="chart-item full-width">
+          <h3 className="chart-subsection-title">Correlation Matrix</h3>
+          <div className="chart-card w-full">
             <img
               src={`data:image/png;base64,${charts.correlation}`}
               alt="Correlation Matrix"
@@ -43,10 +41,10 @@ export default function ChartPanel({ charts }) {
       {/* Box Plots */}
       {charts.boxplots && charts.boxplots.length > 0 && (
         <div className="chart-section">
-          <h3 className="section-title">Outlier Detection (Box Plots)</h3>
+          <h3 className="chart-subsection-title">Outlier Detection (Box Plots)</h3>
           <div className="chart-grid">
             {charts.boxplots.map((chart, index) => (
-              <div key={index} className="chart-item">
+              <div key={index} className="chart-card">
                 <p className="chart-label">{chart.column}</p>
                 <img
                   src={`data:image/png;base64,${chart.image}`}
