@@ -6,10 +6,10 @@ import io
 import json
 from typing import Optional
 
-from eda_engine import analyze
-from prompt_builder import build_structured_prompt, build_baseline_prompt
-from gemini_client import call_gemini
-from charts import generate_charts
+from app.eda_engine import analyze
+from app.prompt_builder import build_structured_prompt, build_baseline_prompt
+from app.gemini_client import call_gemini
+from app.charts import generate_charts
 
 app = FastAPI(title="Insight Forge API", version="1.0.0")
 
