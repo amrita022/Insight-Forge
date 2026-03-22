@@ -54,6 +54,51 @@ export default function StatsTable({ stats }) {
           </div>
         </div>
       )}
+
+      {/* Descriptive Statistics */}
+      {stats.descriptive_stats && Object.keys(stats.descriptive_stats).length > 0 && (
+        <div className="stats-section">
+          <h3 className="stats-section-title">Summary Statistics</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white border border-gray-300 rounded-lg">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Column</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mean</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Median</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Std Dev</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {Object.entries(stats.descriptive_stats).map(([col, stat]) => (
+                  <tr key={col}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{col}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{stat.count}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                      {stat.mean !== null ? stat.mean.toFixed(2) : 'N/A'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                      {stat.median !== null ? stat.median.toFixed(2) : 'N/A'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                      {stat.std !== null ? stat.std.toFixed(2) : 'N/A'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                      {stat.min !== null ? stat.min.toFixed(2) : 'N/A'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                      {stat.max !== null ? stat.max.toFixed(2) : 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
