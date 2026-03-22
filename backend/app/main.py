@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 import pandas as pd
 import io
 import json
+import traceback
 from typing import Optional
 
 from app.eda_engine import analyze
@@ -66,7 +67,8 @@ async def analyze_csv(file: UploadFile = File(...)):
     except pd.errors.ParserError as e:
         raise HTTPException(status_code=400, detail=f"Invalid CSV format: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during analysis: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/analyze/baseline")
@@ -109,7 +111,8 @@ async def analyze_baseline(file: UploadFile = File(...)):
     except pd.errors.ParserError as e:
         raise HTTPException(status_code=400, detail=f"Invalid CSV format: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during baseline analysis: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")
