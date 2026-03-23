@@ -11,14 +11,17 @@ def call_gemini(prompt: str) -> dict:
         "https://openrouter.ai/api/v1/chat/completions",
         headers={
             "Authorization": f"Bearer {os.getenv('GEMINI_API_KEY')}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://insight-forge-eta.vercel.app",
         },
         json={
-            "model": "meta-llama/llama-3.3-8b-instruct:free",
+            "model": "meta-llama/llama-3.1-8b-instruct:free",
             "messages": [{"role": "user", "content": prompt}]
         }
     )
     data = response.json()
+    if "choices" not in data:
+        raise Exception(f"OpenRouter error: {data}")
     text = data["choices"][0]["message"]["content"].strip()
     if "```json" in text:
         text = text.split("```json")[1].split("```")[0]
