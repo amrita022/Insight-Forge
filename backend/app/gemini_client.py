@@ -15,7 +15,7 @@ def call_gemini(prompt: str) -> dict:
             "HTTP-Referer": "https://insight-forge-eta.vercel.app",
         },
         json={
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "model": "google/gemini-2.0-flash-exp:free",
             "messages": [{"role": "user", "content": prompt}]
         }
     )
