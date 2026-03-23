@@ -1,16 +1,30 @@
 import os
 import json
+import requests
 from pathlib import Path
 from dotenv import load_dotenv
-from google import genai
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
 
 def call_gemini(prompt: str) -> dict:
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    response = client.models.generate_content(
-        model="gemini-3-flash-preview",
-        contents=prompt
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {os.getenv('GEMINI_API_KEY')}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://insight-forge-eta.vercel.app",
+        },
+        json={
+            "model": "openrouter/auto",
+            "messages": [{"role": "user", "content": prompt}]
+        }
     )
-    text = response.text.strip().strip("```json").strip("```").strip()
-    return json.loads(text)
+    data = response.json()
+    if "choices" not in data:
+        raise Exception(f"OpenRouter error: {data}")
+    text = data["choices"][0]["message"]["content"].strip()
+    if "```json" in text:
+        text = text.split("```json")[1].split("```")[0]
+    elif "```" in text:
+        text = text.split("```")[1].split("```")[0]
+    return json.loads(text.strip())

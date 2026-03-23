@@ -12,7 +12,7 @@ function App() {
   const [error, setError] = useState(null);
   const [mode, setMode] = useState(null);
 
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = 'https://insight-forge-production-0b14.up.railway.app';
 
   const handleFileSelect = (selectedFile) => {
     setFile(selectedFile);
