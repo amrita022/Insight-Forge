@@ -48,9 +48,22 @@ export default function UploadZone({ onAnalyze, onBaseline, file, isLoading, onF
   };
 
   return (
-    <div className="upload-zone-container">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div
-        className={`upload-zone ${isDragActive ? 'active' : ''}`}
+        style={{
+          border: `2px dashed ${isDragActive ? '#1B6B5A' : '#1B6B5A'}`,
+          backgroundColor: isDragActive ? '#F5FBF9' : '#FAF8F3',
+          borderRadius: '12px',
+          padding: '3rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          minHeight: '200px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -62,37 +75,93 @@ export default function UploadZone({ onAnalyze, onBaseline, file, isLoading, onF
           type="file"
           accept=".csv"
           onChange={handleChange}
-          className="hidden"
+          style={{ display: 'none' }}
         />
         
-        <div className="upload-content">
-          <div className="upload-icon">☁️</div>
-          <div>
-            <p className="upload-text">Drop your CSV file here</p>
-            <p className="upload-text-secondary">or click to browse</p>
-          </div>
-        </div>
+        <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📁</div>
+        <p style={{ fontSize: '1.125rem', fontWeight: '600', color: '#1B6B5A', marginBottom: '0.5rem' }}>Drop your CSV file here</p>
+        <p style={{ fontSize: '0.95rem', color: '#666' }}>or click to browse</p>
       </div>
 
       {file && (
-        <div className="file-selected">
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          background: '#E3F2FD',
+          color: '#1B6B5A',
+          padding: '0.75rem 1rem',
+          borderRadius: '24px',
+          fontSize: '0.95rem',
+          fontWeight: '600',
+        }}>
           <span>✓</span>
-          <span className="filename-text">{file.name}</span>
+          <span>{file.name}</span>
         </div>
       )}
 
-      <div className="button-group">
+      <div style={{ display: 'flex', gap: '1rem' }}>
         <button
           onClick={() => onAnalyze(file)}
           disabled={!file || isLoading}
-          className="btn btn-primary flex-1 min-w-[200px]"
+          style={{
+            flex: 1,
+            padding: '0.875rem 1.5rem',
+            background: !file || isLoading ? '#E8E4DC' : '#1B6B5A',
+            color: !file || isLoading ? '#999' : 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: !file || isLoading ? 'not-allowed' : 'pointer',
+            transition: 'all 0.3s ease',
+            opacity: !file || isLoading ? 0.6 : 1,
+          }}
+          onMouseOver={(e) => {
+            if (file && !isLoading) {
+              e.target.style.background = '#0f4935';
+              e.target.style.transform = 'translateY(-2px)';
+            }
+          }}
+          onMouseOut={(e) => {
+            if (file && !isLoading) {
+              e.target.style.background = '#1B6B5A';
+              e.target.style.transform = 'translateY(0)';
+            }
+          }}
         >
           {isLoading ? 'Analyzing...' : 'Analyze with AI'}
         </button>
         <button
           onClick={() => onBaseline(file)}
           disabled={!file || isLoading}
-          className="btn btn-secondary flex-1 min-w-[200px]"
+          style={{
+            flex: 1,
+            padding: '0.875rem 1.5rem',
+            background: 'white',
+            color: !file || isLoading ? '#999' : '#1B6B5A',
+            border: `2px solid ${!file || isLoading ? '#E8E4DC' : '#1B6B5A'}`,
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: !file || isLoading ? 'not-allowed' : 'pointer',
+            transition: 'all 0.3s ease',
+            opacity: !file || isLoading ? 0.6 : 1,
+          }}
+          onMouseOver={(e) => {
+            if (file && !isLoading) {
+              e.target.style.background = '#1B6B5A';
+              e.target.style.color = 'white';
+              e.target.style.transform = 'translateY(-2px)';
+            }
+          }}
+          onMouseOut={(e) => {
+            if (file && !isLoading) {
+              e.target.style.background = 'white';
+              e.target.style.color = '#1B6B5A';
+              e.target.style.transform = 'translateY(0)';
+            }
+          }}
         >
           {isLoading ? 'Analyzing...' : 'Baseline Analysis'}
         </button>
