@@ -180,6 +180,50 @@ function AnalysisApp() {
         margin: 2rem 0;
       }
 
+      /* SUMMARY BOX */
+      .summary-box {
+        background: linear-gradient(135deg, #1B6B5A 0%, #0f4935 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 16px rgba(27, 107, 90, 0.2);
+      }
+
+      .summary-box h2 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: 700;
+      }
+
+      .summary-box p {
+        line-height: 1.8;
+        font-size: 1rem;
+        opacity: 0.95;
+      }
+
+      /* CHART EXPLANATION */
+      .chart-explanation {
+        background: #F5FBF9;
+        border: 1px solid #D4E8E3;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 0.75rem;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #333;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .chart-explanation h4 {
+        color: #1B6B5A;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+      }
+
       /* RESET BUTTON */
       .reset-button-container {
         display: flex;
@@ -236,6 +280,18 @@ function AnalysisApp() {
 
         .insights-grid {
           grid-template-columns: 1fr;
+        }
+
+        .summary-box {
+          padding: 1.5rem;
+        }
+
+        .summary-box h2 {
+          font-size: 1.25rem;
+        }
+
+        .chart-explanation {
+          max-height: 200px;
         }
       }
     `;
@@ -351,6 +407,14 @@ function AnalysisApp() {
                 {mode === 'baseline' ? 'Baseline Analysis' : 'Structured Analysis'}
               </div>
 
+              {/* PLAIN LANGUAGE SUMMARY (NEW) */}
+              {results.summary && (
+                <div className="summary-box">
+                  <h2>📊 What Your Data Shows</h2>
+                  <p>{results.summary}</p>
+                </div>
+              )}
+
               {/* Stats Cards */}
               {results.stats && (
                 <div className="stats-container">
@@ -388,10 +452,13 @@ function AnalysisApp() {
                 </div>
               )}
 
-              {/* Charts */}
+              {/* Charts WITH EXPLANATIONS (UPDATED) */}
               {results.charts && (
                 <div className="charts-container">
-                  <ChartPanel charts={results.charts} />
+                  <ChartPanel 
+                    charts={results.charts} 
+                    explanations={results.explanations}
+                  />
                 </div>
               )}
 
