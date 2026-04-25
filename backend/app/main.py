@@ -4,15 +4,15 @@ This integrates: Enhanced EDA, Charts, Prompts, Explainability, and Gemini API c
 """
 
 import pandas as pd
-from eda_engine_enhanced import analyze
-from charts_enhanced import generate_charts
-from prompt_builder_enhanced import build_structured_prompt, build_simple_explanation_prompt
-from chart_explainability import (
-    generate_chart_explanations, 
+from app.eda_engine import analyze
+from app.charts import generate_charts
+from app.prompt_builder import build_structured_prompt, build_simple_explanation_prompt
+from app.chart_explainability_complete import (
+    generate_chart_explanations,
     generate_summary_explanation,
     generate_chart_interpretation_guide
 )
-from gemini_client import call_gemini
+from app.gemini_client import call_gemini
 import json
 
 
@@ -57,13 +57,23 @@ def run_complete_eda_with_explainability(csv_file_path: str, output_dir: str = '
     print("\n[STEP 3] Generating visualizations...")
     try:
         chart_data = generate_charts(df)
-        print(f"✓ Generated {len(chart_data['distributions'])} distribution charts")
+        print(f"✓ Generated {len(chart_data['distributions'])} distribution histograms")
+        print(f"✓ Generated {len(chart_data['kde_plots'])} KDE density plots")
+        print(f"✓ Generated {len(chart_data['scatter_plots'])} scatter / relationship plots")
+        print(f"✓ Generated {len(chart_data['line_charts'])} line / trend charts")
+        print(f"✓ Generated {len(chart_data['categorical_distributions'])} categorical bar charts")
         print(f"✓ Generated {len(chart_data['boxplots'])} box plots")
-        print(f"✓ Generated {len(chart_data['categorical_distributions'])} categorical charts")
+        print(f"✓ Generated {len(chart_data['violin_plots'])} violin plots")
         if chart_data['correlation']:
             print(f"✓ Generated correlation heatmap")
+        if chart_data['pair_plot']:
+            print(f"✓ Generated multi-variable pair plot")
+        print(f"✓ Generated {len(chart_data['bubble_charts'])} bubble charts")
+        print(f"✓ Generated {len(chart_data['pie_charts'])} pie / donut charts")
         if chart_data['missing_data_heatmap']:
             print(f"✓ Generated missing data visualization")
+        if chart_data['numeric_summary_stats']:
+            print(f"✓ Generated numeric summary stats dashboard")
     except Exception as e:
         print(f"✗ Error generating charts: {e}")
         chart_data = {}
@@ -75,8 +85,8 @@ def run_complete_eda_with_explainability(csv_file_path: str, output_dir: str = '
         print(f"✓ Generated explanations for {len(chart_explanations)} charts")
         
         # Also generate interpretation guide
-        interpretation_guide = generate_chart_interpretation_guide(eda_stats)
-        print(f"✓ Generated beginner's guide for chart interpretation")
+        interpretation_guide = generate_chart_interpretation_guide()
+        print(f"✓ Generated beginner's guide for all 13 chart types")
     except Exception as e:
         print(f"⚠ Error generating chart explanations: {e}")
         chart_explanations = {}
@@ -158,25 +168,25 @@ def run_complete_eda_with_explainability(csv_file_path: str, output_dir: str = '
     # ============ STEP 10: SAVE RESULTS ============
     print("\n[STEP 10] Saving results...")
     try:
-        # Create output directory if it doesn't exist
         import os
         os.makedirs(output_dir, exist_ok=True)
         
-        # Save JSON results
+        # Save JSON results (strip base64 images — too large for JSON)
+        image_keys = ['distributions', 'kde_plots', 'scatter_plots', 'line_charts',
+                      'boxplots', 'violin_plots', 'bubble_charts', 'pie_charts',
+                      'categorical_distributions']
+        results_without_images = final_results.copy()
+        results_without_images['visualizations'] = {
+            k: v for k, v in chart_data.items() if k not in image_keys
+        }
         with open(f'{output_dir}/eda_results.json', 'w') as f:
-            # Remove base64 images for JSON (too large)
-            results_without_images = final_results.copy()
-            results_without_images['visualizations'] = {k: v for k, v in chart_data.items() 
-                                                       if k not in ['distributions', 'boxplots', 'categorical_distributions']}
             json.dump(results_without_images, f, indent=2, default=str)
-        
         print(f"✓ Saved EDA results to {output_dir}/eda_results.json")
         
-        # Save comprehensive report
+        # Save comprehensive text report
         report_content = generate_text_report(final_results)
         with open(f'{output_dir}/eda_report.txt', 'w') as f:
             f.write(report_content)
-        
         print(f"✓ Saved comprehensive report to {output_dir}/eda_report.txt")
         
     except Exception as e:
@@ -209,7 +219,7 @@ def generate_text_report(results: dict) -> str:
 ───────────────────────────────────────────────────────────────────────────────
 """
     
-    info = results.get('dataset_info', {})
+    info    = results.get('dataset_info', {})
     quality = results.get('quality_metrics', {})
     
     report += f"""
@@ -280,18 +290,42 @@ For questions about the analysis, see the detailed JSON results file.
     
     return report
 
+from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+import tempfile
+import os
 
-if __name__ == "__main__":
-    # Example usage
-    import sys
-    
-    if len(sys.argv) > 1:
-        csv_file = sys.argv[1]
-        output_directory = sys.argv[2] if len(sys.argv) > 2 else './results'
-    else:
-        print("Usage: python main.py <csv_file_path> [output_directory]")
-        print("\nExample: python main.py data.csv ./results")
-        sys.exit(1)
-    
-    # Run the complete pipeline
-    results = run_complete_eda_with_explainability(csv_file, output_directory)
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+def home():
+    return {"message": "Insight-Forge Backend Running"}
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        # 👉 your SAME function
+        results = run_complete_eda_with_explainability(tmp_path)
+
+        os.remove(tmp_path)
+
+        return {
+            "message": "Success",
+            "results": results
+        }
+
+    except Exception as e:
+        return {"error": str(e)}

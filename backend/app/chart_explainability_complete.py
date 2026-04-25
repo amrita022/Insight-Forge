@@ -1,853 +1,755 @@
 """
-CHART EXPLAINABILITY MODULE
-Generates AI-powered plain-language explanations for charts
-Makes data analysis accessible to non-technical users
+INSIGHT-FORGE: CHART EXPLAINABILITY MODULE (Full Edition)
+==========================================================
+Plain-language explanations for every chart type.
+Designed so non-technical stakeholders understand
+WHY each chart exists and WHAT to do with the insight.
+
+Supported:
+  Distribution Histogram | KDE | Scatter | Line | Categorical Bar
+  Box Plot | Violin | Correlation Heatmap | Pair Plot
+  Bubble Chart | Pie/Donut | Missing Data | Summary Dashboard
 """
 
-import json
-from typing import Dict, Any, List
-import sys
-
-# ============================================================================
-# NOTE: If gemini_client is not available, use placeholder responses
-# In production, uncomment the import below and configure your API key
-# ============================================================================
-# from gemini_client import call_gemini
-
-# For now, we'll create local explanations (no API required)
+from __future__ import annotations
+from typing import Any, Dict, List, Optional
 
 
-class ChartExplainer:
-    """Generate explanations for charts in plain, non-technical language"""
-    
-    def __init__(self, use_ai=False):
-        """
-        Initialize the chart explainer
-        
-        Args:
-            use_ai: If True, uses Gemini API for explanations
-                   If False, uses built-in explanations
-        """
-        self.use_ai = use_ai
-    
-    def explain_distribution_chart(self, column_name: str, stats: Dict[str, Any]) -> str:
-        """
-        Generate explanation for a distribution histogram
-        
-        Args:
-            column_name: Name of the column
-            stats: Statistical information about the column
-        
-        Returns:
-            Plain language explanation
-        """
-        
-        mean = stats.get('mean', 0)
-        median = stats.get('median', 0)
-        std = stats.get('std', 0)
-        min_val = stats.get('min', 0)
-        max_val = stats.get('max', 0)
-        skewness = stats.get('skewness_interpretation', 'Symmetric')
-        
-        explanation = f"""
-📊 WHAT THIS CHART SHOWS:
+# ── helpers ──────────────────────────────────────────────────────────────────
 
-This histogram displays how {column_name} values are distributed across your data.
-Think of it like a frequency count - taller bars mean more people/items have those values.
+def _skew_interp(val: Optional[float]) -> str:
+    if val is None:
+        return "shape unknown"
+    if abs(val) < 0.5:
+        return "fairly symmetric – similar to a bell curve"
+    if val > 0:
+        return f"right-skewed ({val:.2f}) – most values are low, a few are very high"
+    return f"left-skewed ({val:.2f}) – most values are high, a few are very low"
 
-KEY OBSERVATIONS:
-• Average ({column_name}): {mean:.2f}
-  The typical value in your dataset
-  
-• Middle Value (Median): {median:.2f}
-  The value that splits your data in half
-  
-• Spread (Range): {min_val:.2f} to {max_val:.2f}
-  The minimum and maximum values
-  
-• Shape: {skewness}
-  {self._interpret_skewness(skewness)}
+def _corr_strength(r: float) -> str:
+    a = abs(r)
+    sign = "positive" if r >= 0 else "negative"
+    if a >= 0.9:
+        return f"very strong {sign} relationship"
+    if a >= 0.7:
+        return f"strong {sign} relationship"
+    if a >= 0.5:
+        return f"moderate {sign} relationship"
+    if a >= 0.3:
+        return f"weak {sign} relationship"
+    return "very weak or no relationship"
 
-WHAT THIS MEANS IN SIMPLE TERMS:
-The chart shows whether your {column_name} values are:
-✓ Clustered around one area (concentrated)
-✓ Spread out evenly (distributed)
-✓ Skewed to one side (unbalanced)
+def _missing_severity(pct: float) -> str:
+    if pct < 2:   return "Excellent – almost no missing data"
+    if pct < 10:  return "Good – minor gaps, easy to handle"
+    if pct < 25:  return "⚠️ Moderate – needs imputation or investigation"
+    if pct < 50:  return "⚠️ High – significant data loss, proceed with caution"
+    return " Critical – column may be unusable"
 
-BUSINESS INSIGHT:
-Use this to understand if {column_name} values are typical and normal,
-or if there are unusual patterns you should investigate.
-"""
-        
-        return explanation.strip()
-    
-    def explain_boxplot(self, column_name: str, stats: Dict[str, Any]) -> str:
-        """
-        Generate explanation for a boxplot
-        
-        Args:
-            column_name: Name of the column
-            stats: Statistical information including Q1, Q3, median
-        
-        Returns:
-            Plain language explanation
-        """
-        
-        q1 = stats.get('q1', 0)
-        median = stats.get('median', 0)
-        q3 = stats.get('q3', 0)
-        outlier_count = stats.get('outlier_count', 0)
-        outlier_percentage = stats.get('outlier_percentage', 0)
-        
-        explanation = f"""
-📦 WHAT THIS BOXPLOT SHOWS:
+def _outlier_advice(pct: float) -> str:
+    if pct == 0:    return "Clean – no outliers detected"
+    if pct < 1:     return "Minimal outliers (< 1%) – likely natural variation"
+    if pct < 5:     return "ℹSome outliers (1–5%) – investigate before modelling"
+    return "⚠️ Many outliers (> 5%) – review data collection or apply transformations"
 
-A boxplot is like a snapshot that shows where most of your {column_name} values are
-and highlights any unusual values (outliers).
 
-PARTS OF THE BOXPLOT:
-┌─────────────────────────────────────────┐
-│                                         │
-│  THE BOX: Contains the middle 50%       │
-│  Line in box: The median (middle value) │
-│  Whiskers: The normal range             │
-│  Dots: Outliers (unusual values)        │
-│                                         │
-└─────────────────────────────────────────┘
+# ── per-chart explanation functions ──────────────────────────────────────────
 
-YOUR DATA:
-• Bottom of box (Q1): {q1:.2f} - 25% of values are below this
-• Middle line: {median:.2f} - This is the median (half above, half below)
-• Top of box (Q3): {q3:.2f} - 75% of values are below this
-• Outliers found: {outlier_count} ({outlier_percentage}%)
+def explain_histogram(column: str, stats: Dict[str, Any]) -> str:
+    mean    = stats.get("mean", 0)
+    median  = stats.get("median", 0)
+    std     = stats.get("std", 0)
+    min_v   = stats.get("min", 0)
+    max_v   = stats.get("max", 0)
+    skew    = _skew_interp(stats.get("skewness"))
 
-WHAT THIS MEANS:
-If the box is:
-✓ Tall and wide = Values are very different from each other
-✓ Short and narrow = Values are similar to each other
-✓ Has dots outside = Some unusual/extreme values exist
+    diff = abs(mean - median)
+    balance = (
+        f"The mean ({mean:.2f}) and median ({median:.2f}) are close, "
+        "so extreme values are not pulling the average much."
+        if diff < std * 0.25
+        else f"The mean ({mean:.2f}) and median ({median:.2f}) differ by {diff:.2f}. "
+             "This gap suggests that a few extreme values are pulling the average."
+    )
 
-WHY IT MATTERS:
-Outliers could be:
-• Real problems or opportunities (investigate)
-• Data entry errors (fix them)
-• Just natural variation (keep them)
+    return f"""📊 DISTRIBUTION HISTOGRAM — {column.upper()}
 
-RECOMMENDATION:
-{self._outlier_recommendation(outlier_percentage)}
-"""
-        
-        return explanation.strip()
-    
-    def explain_correlation_heatmap(self, correlations: List[Dict], 
-                                   total_variables: int) -> str:
-        """
-        Generate explanation for a correlation heatmap
-        
-        Args:
-            correlations: List of strong correlations found
-            total_variables: Total number of variables analyzed
-        
-        Returns:
-            Plain language explanation
-        """
-        
-        explanation = f"""
-🔗 WHAT THIS CORRELATION CHART SHOWS:
+WHAT THIS CHART IS:
+  A histogram shows how often different values appear.
+  Taller bars = more records have that value.
+  Think of it like a "popularity contest" for numbers.
 
-Correlation measures whether two variables "move together".
+KEY NUMBERS:
+  • Average (Mean): {mean:.2f}
+  • Middle value (Median): {median:.2f}
+  • Typical spread (Std Dev): ± {std:.2f}
+  • Full range: {min_v:.2f}  →  {max_v:.2f}
 
-SIMPLE EXAMPLE:
-If ice cream sales and temperature both increase together = Positive correlation
-If umbrella sales decrease when weather improves = Negative correlation
+SHAPE OF THE DATA:
+  The distribution is {skew}.
 
-COLOR MEANINGS:
-• Red/Warm colors: Positive correlation (both increase together)
-• Blue/Cool colors: Negative correlation (one increases, other decreases)
-• White/Light colors: No relationship (one doesn't affect the other)
-
-STRONG CORRELATIONS FOUND IN YOUR DATA:
-"""
-        
-        if correlations:
-            for i, corr in enumerate(correlations, 1):
-                var1 = corr.get('variable1', 'Variable A')
-                var2 = corr.get('variable2', 'Variable B')
-                value = corr.get('correlation', 0)
-                interpretation = self._interpret_correlation(value)
-                
-                explanation += f"""
-{i}. {var1} ↔ {var2}: {value:.3f}
-   {interpretation}
-"""
-        else:
-            explanation += """
-No strong correlations found (threshold > 0.7)
-This means your variables don't strongly influence each other.
-"""
-        
-        explanation += f"""
+MEAN vs. MEDIAN:
+  {balance}
 
 WHY THIS MATTERS:
-✓ Strong correlations indicate variable relationships
-✓ Helps identify what drives changes in your business
-✓ Reveals dependencies between metrics
-✓ Important for building predictive models
+  • A symmetric shape means the data behaves predictably.
+  • A skewed shape means a small group of extreme values could
+    distort averages and mislead reports.
+  • Use the MEDIAN (not the mean) for skewed data.
 
-IMPORTANT NOTE:
-⚠️ Correlation does NOT mean causation!
-Just because two things move together doesn't mean one causes the other.
+SUGGESTED ACTION:
+  {"No action needed – distribution looks healthy." if abs(stats.get("skewness", 0) or 0) < 0.5
+   else "Consider log-transforming this column before statistical modelling."}
 """
-        
-        return explanation.strip()
-    
-    def explain_missing_data(self, missing_summary: Dict[str, Any], 
-                            missing_by_column: Dict[str, Any]) -> str:
-        """
-        Generate explanation for missing data visualization
-        
-        Args:
-            missing_summary: Overall missing data statistics
-            missing_by_column: Missing data per column
-        
-        Returns:
-            Plain language explanation
-        """
-        
-        total_missing_pct = missing_summary.get('missing_percentage', 0)
-        total_missing = missing_summary.get('total_missing', 0)
-        
-        explanation = f"""
-❌ WHAT MISSING DATA MEANS:
 
-Missing data = Empty cells in your dataset
-These are values that were not recorded or are unknown.
+def explain_kde(column: str, stats: Dict[str, Any]) -> str:
+    mean = stats.get("mean", 0)
+    std  = stats.get("std", 0)
+    return f"""〰️ KDE DENSITY CURVE — {column.upper()}
 
-OVERALL PICTURE:
-• Total missing values: {total_missing} cells
-• Percentage of total: {total_missing_pct}% of all data
-• Status: {self._missing_data_status(total_missing_pct)}
+WHAT THIS CHART IS:
+  A KDE (Kernel Density Estimate) is a smoothed version of the histogram.
+  Instead of bars, it draws a continuous curve showing where values
+  are most concentrated.  The higher the curve, the more common
+  those values are.
 
-MISSING DATA BY COLUMN:
+HOW TO READ IT:
+  • Peaks → most common values
+  • Wide flat sections → values spread out broadly
+  • Sharp narrow peaks → values cluster tightly
+
+YOUR DATA:
+  • Average: {mean:.2f}
+  • Spread:  ± {std:.2f}
+
+COMPARED TO A HISTOGRAM:
+  KDE is better for spotting multiple "humps" (bi-modal distributions)
+  which suggest two different sub-groups exist in your data.
+
+SUGGESTED ACTION:
+  {"Single peak – data appears to follow one group." if std < mean * 0.5
+   else "Wide spread – consider checking if sub-groups exist (e.g., by region or category)."}
 """
-        
-        # Sort columns by missing percentage (highest first)
-        sorted_cols = sorted(missing_by_column.items(), 
-                           key=lambda x: x[1].get('percentage', 0), 
-                           reverse=True)
-        
-        for col_name, col_data in sorted_cols[:10]:  # Top 10
-            missing_count = col_data.get('count', 0)
-            missing_pct = col_data.get('percentage', 0)
-            if missing_pct > 0:
-                explanation += f"\n• {col_name}: {missing_count} missing ({missing_pct}%)"
-        
-        explanation += f"""
 
-IMPACT ASSESSMENT:
+def explain_scatter(x_col: str, y_col: str, corr: float) -> str:
+    strength = _corr_strength(corr)
+    return f"""🔵 SCATTER PLOT — {x_col.upper()}  vs  {y_col.upper()}
+
+WHAT THIS CHART IS:
+  Each dot represents one record.  Its horizontal position shows
+  the value of {x_col} and its vertical position shows {y_col}.
+  The trend line summarises the overall pattern.
+
+CORRELATION FOUND: r = {corr:.3f}
+  This is a {strength}.
+
+HOW TO INTERPRET r:
+  r = +1.0 → Perfect increase together
+  r =  0.0 → No relationship at all
+  r = -1.0 → Perfect inverse (one rises, other falls)
+
+YOUR RESULT ({corr:.3f}):
+  {
+    "As " + x_col + " increases, " + y_col + " also tends to increase."
+    if corr > 0.3
+    else "As " + x_col + " increases, " + y_col + " tends to decrease."
+    if corr < -0.3
+    else x_col + " and " + y_col + " do not appear strongly related."
+  }
+
+⚠️  IMPORTANT:
+  Correlation ≠ Causation.  Even a strong r does not mean one variable
+  *causes* the other to change.  Always seek a business explanation.
+
+SUGGESTED ACTION:
+  {"Investigate this relationship further – it may be predictively useful." if abs(corr) > 0.5
+   else "No strong relationship found – these variables may be independent."}
 """
-        
-        if total_missing_pct < 5:
-            explanation += "✅ LOW IMPACT: Your data is very complete"
-        elif total_missing_pct < 20:
-            explanation += "⚠️ MODERATE: Some gaps exist but manageable"
-        else:
-            explanation += "❌ HIGH IMPACT: Significant gaps need attention"
-        
-        explanation += """
 
-RECOMMENDATIONS:
-1. Columns with > 30% missing: Consider removing or imputing
-2. Columns with < 5% missing: Safe to delete/fill
-3. Investigate WHEN/WHY data is missing
-   - Is it random or systematic?
-   - Can you find the missing values elsewhere?
+def explain_line(column: str) -> str:
+    return f"""📈 LINE CHART — {column.upper()} over Record Index
 
-HOW TO HANDLE:
-• Delete rows with missing values (if few)
-• Fill with average/median (if numeric)
-• Fill with "Unknown" (if categorical)
-• Use advanced imputation methods
+WHAT THIS CHART IS:
+  This chart plots {column} values in the order they appear in your dataset.
+  It is useful for spotting trends, cycles, or sudden jumps over time
+  (or over record sequence if no date column exists).
+
+HOW TO READ IT:
+  • Rising line    → values increasing over time/records
+  • Falling line   → values decreasing
+  • Zigzag pattern → high variability / seasonality
+  • Flat line      → stable, little change
+
+WHY THIS MATTERS:
+  Line charts reveal whether a metric is improving or declining,
+  which bar charts or histograms cannot show.
+
+SUGGESTED ACTION:
+  If you see a clear trend, consider time-series forecasting.
+  Sudden spikes or drops may indicate data entry errors or real events
+  that need investigation.
 """
-        
-        return explanation.strip()
-    
-    def explain_categorical_distribution(self, column_name: str, 
-                                        categories: Dict[str, int]) -> str:
-        """
-        Generate explanation for categorical data distribution
-        
-        Args:
-            column_name: Name of the categorical column
-            categories: Dictionary of categories and their counts
-        
-        Returns:
-            Plain language explanation
-        """
-        
-        total_count = sum(categories.values())
-        
-        explanation = f"""
-🏷️ WHAT THIS CATEGORICAL CHART SHOWS:
 
-This chart shows how {column_name} values are distributed.
-Each bar represents a category and how many items fall into it.
+def explain_categorical_bar(column: str, top_cat: str, top_count: int,
+                             n_unique: int) -> str:
+    return f"""📊 COUNT BAR CHART — {column.upper()}
 
-DATA BREAKDOWN:
+WHAT THIS CHART IS:
+  Each bar shows how many records belong to one category.
+  Taller bar = more records in that group.
+
+YOUR DATA:
+  • Distinct categories: {n_unique}
+  • Most common value:   "{top_cat}"  ({top_count:,} records)
+
+HOW TO READ IT:
+  • Balanced bars → data is evenly spread across categories
+  • One dominant bar → one category dominates; models may be biased
+  • Many tiny bars → consider grouping rare categories into "Other"
+
+WHY THIS MATTERS:
+  Category imbalance (e.g., 90% Active, 10% Inactive) can make
+  machine learning models biased toward the dominant class.
+
+SUGGESTED ACTION:
+  {"Data looks reasonably balanced across categories." if n_unique <= 8
+   else "Many categories present – consider grouping rare ones (< 2%) into 'Other'."}
 """
-        
-        for category, count in sorted(categories.items(), 
-                                     key=lambda x: x[1], 
-                                     reverse=True)[:10]:
-            percentage = (count / total_count * 100) if total_count > 0 else 0
-            bar_length = int(percentage / 5)  # Each # = 5%
-            bar = "█" * bar_length + "░" * (20 - bar_length)
-            explanation += f"\n• {category}: {count:,} [{bar}] {percentage:.1f}%"
-        
-        explanation += f"""
 
-OBSERVATIONS:
-✓ Most common: {max(categories.items(), key=lambda x: x[1])[0]}
-✓ Least common: {min(categories.items(), key=lambda x: x[1])[0]}
-✓ Total categories: {len(categories)}
-✓ Total items: {total_count:,}
+def explain_boxplot(column: str, q1: float, median: float, q3: float,
+                    outlier_count: int, outlier_pct: float) -> str:
+    iqr = q3 - q1
+    advice = _outlier_advice(outlier_pct)
+    return f"""📦 BOX PLOT — {column.upper()}
 
-BALANCE CHECK:
+WHAT THIS CHART IS:
+  A box plot (also called box-and-whisker) compresses all key
+  statistics into one compact picture.
+
+ANATOMY OF THE BOX:
+  ┌──────────────────────────────────────┐
+  │  Whisker top   = upper "normal" limit│
+  │  Top of box    = Q3 (75th percentile)│
+  │  Line in box   = Median (50%)        │
+  │  Bottom of box = Q1 (25th percentile)│
+  │  Whisker bottom= lower "normal" limit│
+  │  Dots outside  = Outliers            │
+  └──────────────────────────────────────┘
+
+YOUR DATA:
+  • Q1 (bottom 25%):     {q1:.2f}
+  • Median (middle):     {median:.2f}
+  • Q3 (top 25%):        {q3:.2f}
+  • IQR (box height):    {iqr:.2f}
+  • Outliers:            {outlier_count} records ({outlier_pct:.1f}%)
+
+OUTLIER VERDICT:
+  {advice}
+
+SUGGESTED ACTION:
+  {"All good – no outliers to investigate." if outlier_count == 0
+   else "Review outlier records individually – they may be data errors or genuine anomalies."}
 """
-        
-        max_pct = max((count / total_count * 100) for count in categories.values()) if total_count > 0 else 0
-        min_pct = min((count / total_count * 100) for count in categories.values()) if total_count > 0 else 100
-        balance_ratio = max_pct / min_pct if min_pct > 0 else float('inf')
-        
-        if balance_ratio < 2:
-            explanation += "✅ BALANCED: Categories are evenly distributed"
-        elif balance_ratio < 5:
-            explanation += "⚠️ SLIGHTLY IMBALANCED: Some categories more common"
-        else:
-            explanation += "❌ HIGHLY IMBALANCED: One category dominates"
-        
-        explanation += f"""
 
-WHY IT MATTERS:
-✓ Understand customer/product distribution
-✓ Identify underrepresented groups
-✓ Plan targeted strategies for each category
-✓ Ensure data balance for analysis
+def explain_violin(column: str, cat_column: Optional[str] = None) -> str:
+    group_note = (
+        f"  The plot is split by **{cat_column}** so you can compare distributions across groups."
+        if cat_column
+        else "  A single group violin is shown (no categorical grouping column found)."
+    )
+    return f"""🎻 VIOLIN PLOT — {column.upper()}
 
-NEXT STEPS:
-- If imbalanced: Investigate why
-- Plan strategies for underrepresented categories
-- Consider if this affects your analysis
+WHAT THIS CHART IS:
+  A violin plot combines a box plot with a KDE density curve.
+  It shows the full shape of the distribution, not just summary stats.
+
+HOW TO READ IT:
+  • Wide sections → many values concentrated there
+  • Narrow sections → few values in that range
+  • The white dot inside = the median
+  • The thick bar = the interquartile range (IQR)
+
+{group_note}
+
+COMPARED TO A BOX PLOT:
+  Box plots hide multi-modal distributions; violin plots reveal them.
+  If you see a "double bump" shape, two sub-groups likely exist.
+
+WHY THIS MATTERS:
+  You can immediately see whether different groups
+  (e.g., regions, customer types) have different value distributions —
+  critical for fair, group-aware analysis.
+
+SUGGESTED ACTION:
+  Look for groups whose violin shape differs markedly from others;
+  those groups may need separate models or policies.
 """
-        
-        return explanation.strip()
-    
-    def generate_interpretation_guide(self) -> Dict[str, str]:
-        """
-        Generate a beginner's guide for understanding different chart types
-        
-        Returns:
-            Dictionary with guides for different chart types
-        """
-        
-        guides = {
-            'histogram': """
-📊 HOW TO READ A HISTOGRAM (Distribution Chart)
 
-PARTS:
-1. X-axis (horizontal): The range of values
-2. Y-axis (vertical): How many times each value appears
-3. Bars: Taller = more occurrences
+def explain_correlation_heatmap(strong_corrs: List[Dict]) -> str:
+    if strong_corrs:
+        pairs = "\n".join(
+            f"  • {c['variable1']} ↔ {c['variable2']}: r = {c['correlation']:.3f}  "
+            f"({_corr_strength(c['correlation'])})"
+            for c in strong_corrs[:8]
+        )
+    else:
+        pairs = "  None found above the 0.7 threshold."
 
-SHAPE MEANINGS:
-• Single peak in middle: Normal distribution (good!)
-• Spread across range: Values vary widely
-• Peak on left: Left-skewed (more low values)
-• Peak on right: Right-skewed (more high values)
-• Multiple peaks: Possible different groups mixed
+    return f"""🌡️ CORRELATION HEATMAP
 
-WHAT TO LOOK FOR:
-✓ Is it concentrated or spread out?
-✓ Are there gaps or empty areas?
-✓ Does the shape seem natural or odd?
+WHAT THIS CHART IS:
+  The heatmap shows the correlation coefficient (r) between every pair
+  of numeric variables simultaneously.
 
-ACTION ITEMS:
-- Wide spread = More variability, plan accordingly
-- Tight cluster = Values are similar
-- Multiple peaks = Might have different groups to analyze
-""",
-            
-            'boxplot': """
-📦 HOW TO READ A BOXPLOT (Box & Whisker Plot)
+COLOR GUIDE:
+  🔴 Dark red  → Strong positive correlation (both rise together)
+  🔵 Dark blue → Strong negative correlation (one rises, other falls)
+  ⚪ White     → No meaningful relationship
 
-PARTS:
-1. Box: Middle 50% of your data
-2. Line in box: The median (middle value)
-3. Whiskers: Lines extending from box (normal range)
-4. Dots: Outliers (unusual values)
+HOW TO READ NUMBERS:
+  +1.0  = Perfect positive link
+   0.0  = No link
+  −1.0  = Perfect inverse link
 
-INTERPRETING THE BOX:
-• Tall box = Values vary widely
-• Short box = Values are similar
-• Line in middle = Median
-• Line off-center = Skewed distribution
+STRONG CORRELATIONS IN YOUR DATA (|r| > 0.7):
+{pairs}
 
-INTERPRETING THE WHISKERS:
-• Long whiskers = Wide normal range
-• Short whiskers = Narrow normal range
-• Extends far = More extreme values exist
+WHY THIS MATTERS:
+  • High correlations can indicate redundant features in a model
+    (multicollinearity) — keeping both may cause confusion.
+  • It reveals which variables drive each other, helping you focus
+    on the most impactful levers.
 
-OUTLIERS (Dots):
-• Points beyond whiskers = Unusual/extreme values
-• Few outliers = Mostly normal values
-• Many outliers = Varied data or measurement issues
+⚠️  REMEMBER:
+  Correlation ≠ Causation.  Always validate with domain knowledge.
 
-ACTION ITEMS:
-- Few outliers = Data looks clean
-- Many outliers = Investigate the causes
-- Understand if outliers are errors or valid data
-""",
-            
-            'correlation': """
-🔗 HOW TO READ A CORRELATION HEATMAP
-
-COLORS:
-• Red/Dark Red: Strong positive correlation (both increase together)
-  Example: Height and weight
-  
-• Blue/Dark Blue: Strong negative correlation (one increases, other decreases)
-  Example: Price and demand
-  
-• White/Light: No correlation (no relationship)
-
-READING THE GRID:
-1. Find your two variables (one on top, one on side)
-2. Look at the color where they meet
-3. Check the number (-1 to +1)
-
-CORRELATION STRENGTH:
-• 0.9 to 1.0: Very strong positive
-• 0.7 to 0.9: Strong positive
-• 0.5 to 0.7: Moderate positive
-• 0.3 to 0.5: Weak positive
-• -0.3 to 0.3: No relationship
-• -0.5 to -0.3: Weak negative
-• -0.7 to -0.5: Moderate negative
-• -0.9 to -0.7: Strong negative
-• -1.0 to -0.9: Very strong negative
-
-IMPORTANT:
-⚠️ Correlation ≠ Causation!
-Just because two things correlate doesn't mean one causes the other.
-
-ACTION ITEMS:
-- Strong correlations = Variables move together
-- Investigate: Is there a causal relationship?
-- Use for predictions or understanding dependencies
-""",
-            
-            'missing_data': """
-❌ HOW TO UNDERSTAND MISSING DATA
-
-WHAT IT MEANS:
-Missing data = Empty cells that should have values
-
-TYPES:
-1. Missing Completely at Random (MCAR)
-   - Nothing is causing the missing values
-   - Best case scenario
-   
-2. Missing at Random (MAR)
-   - Missing due to some other variable
-   - Example: High earners less likely to report income
-   
-3. Not Missing at Random (NMAR)
-   - Missing values related to the values themselves
-   - Worst case: Biases your analysis
-
-IMPACT:
-• 1-5% missing: Usually OK, can ignore
-• 5-20% missing: Can be handled (fill or remove rows)
-• 20%+ missing: Requires investigation, may bias results
-
-SOLUTIONS:
-1. Delete rows with missing values
-   - Pros: Simple, clean
-   - Cons: Lose data
-   
-2. Fill with average/median
-   - Pros: Keeps data size
-   - Cons: Distorts distribution
-   
-3. Fill with forward/backward fill (time series)
-   - Pros: Maintains trends
-   - Cons: Not always appropriate
-   
-4. Use advanced imputation
-   - Pros: More accurate
-   - Cons: Complex
-
-ACTION ITEMS:
-- Identify which columns have missing data
-- Understand the pattern (random or systematic?)
-- Choose appropriate handling method
-""",
-            
-            'categorical': """
-🏷️ HOW TO READ CATEGORICAL DISTRIBUTION CHART
-
-PARTS:
-1. Categories: Different values/groups (on one axis)
-2. Counts: Number of items in each category (on other axis)
-3. Bars: Length shows relative frequency
-
-INTERPRETING:
-• Tall bars = More items in that category
-• Short bars = Fewer items in that category
-• Even heights = Balanced distribution
-• Very uneven = One category dominates
-
-BALANCE ASSESSMENT:
-• Balanced: All categories roughly equal size
-• Slightly imbalanced: Biggest 2-3x smallest
-• Highly imbalanced: Biggest 10x+ smallest
-• Very skewed: One category > 50% of total
-
-WHAT TO LOOK FOR:
-✓ Is data evenly distributed?
-✓ Are some categories missing?
-✓ Is one category dominating?
-✓ Are there unexpected patterns?
-
-ACTION ITEMS:
-- Balanced = Good for fair analysis
-- Imbalanced = May need special handling
-- Investigate: Why is distribution uneven?
-- Plan strategies for each category
+SUGGESTED ACTION:
+  {"Consider removing one variable from each highly correlated pair when building predictive models." if strong_corrs
+   else "No action needed – variables appear independent of each other."}
 """
-        }
-        
-        return guides
-    
-    def generate_data_quality_explanation(self, quality_score: Dict[str, Any]) -> str:
-        """
-        Generate plain language explanation of data quality score
-        
-        Args:
-            quality_score: Data quality metrics
-        
-        Returns:
-            Plain language explanation
-        """
-        
-        overall_score = quality_score.get('overall_score', 0)
-        completeness = quality_score.get('completeness_score', 0)
-        outlier_quality = quality_score.get('outlier_quality_score', 0)
-        interpretation = quality_score.get('interpretation', 'Unknown')
-        
-        explanation = f"""
-📈 DATA QUALITY REPORT
 
-OVERALL SCORE: {overall_score}/100 - {interpretation.upper()}
+def explain_pair_plot(columns: List[str], hue: Optional[str]) -> str:
+    hue_note = (
+        f"  Dots are color-coded by **{hue}** for group comparison."
+        if hue
+        else "  No categorical color-coding applied."
+    )
+    return f"""🔢 PAIR PLOT — Multi-variable View
 
-What does this mean?
-├─ 80-100: ✅ EXCELLENT - Data is clean and ready for analysis
-├─ 60-80:  ✅ GOOD - Minor issues, but usable
-├─ 40-60:  ⚠️  FAIR - Some cleaning needed
-└─ 0-40:   ❌ POOR - Significant work required
+WHAT THIS CHART IS:
+  A pair plot shows every possible scatter plot between your selected
+  numeric columns in one grid.  The diagonal cells show the distribution
+  (KDE) of each individual column.
 
-YOUR BREAKDOWN:
-• Completeness Score: {completeness}/100
-  {self._completeness_interpretation(completeness)}
+COLUMNS SHOWN: {', '.join(columns)}
 
-• Outlier Quality: {outlier_quality}/100
-  {self._outlier_quality_interpretation(outlier_quality)}
+{hue_note}
 
-WHAT TO DO NEXT:
+HOW TO READ IT:
+  • Diagonal (top-left to bottom-right) → density curve for each variable
+  • Off-diagonal cells → scatter plots between each pair
+  • A tight linear pattern → strong correlation
+  • A cloud of dots       → weak or no correlation
+
+WHY THIS MATTERS:
+  You can survey ALL variable relationships at once without clicking
+  through many individual scatter plots.  It's the fastest way to
+  spot interesting patterns before deeper analysis.
+
+SUGGESTED ACTION:
+  Identify the 1–3 scatter cells with the clearest pattern and
+  follow up with individual scatter plots for deeper inspection.
 """
-        
-        if overall_score >= 80:
-            explanation += """
-✅ Your data is excellent! You can:
-   1. Proceed with analysis immediately
-   2. Trust the results from this dataset
-   3. Focus on getting insights
+
+def explain_bubble(x_col: str, y_col: str, size_col: str) -> str:
+    return f"""🫧 BUBBLE CHART — {x_col}  vs  {y_col}  (size = {size_col})
+
+WHAT THIS CHART IS:
+  Like a scatter plot, but with a THIRD dimension:
+  the SIZE of each bubble represents the value of {size_col}.
+
+  • Horizontal position → {x_col}
+  • Vertical position   → {y_col}
+  • Bubble size         → {size_col}
+  • Bubble color (if shown) → category group
+
+HOW TO READ IT:
+  • Large bubbles in the top-right → high values on all three metrics
+  • Clusters of small bubbles → a group with low {size_col}
+  • Outlier bubbles far from the rest → investigate those records
+
+WHY THIS MATTERS:
+  Three variables in one chart helps with prioritisation.
+  For example: "Which customer segments have high spending
+  but low engagement?" becomes visually obvious.
+
+SUGGESTED ACTION:
+  Identify any large bubbles that sit in an unexpected location
+  — they represent high-impact anomalies or opportunities.
 """
-        elif overall_score >= 60:
-            explanation += """
-✅ Your data is good but has minor issues. You should:
-   1. Be aware of potential bias
-   2. Note any gaps in the analysis
-   3. Consider mentioning limitations
+
+def explain_pie(column: str, categories: List[str], counts: List[int]) -> str:
+    total = sum(counts)
+    top   = categories[0] if categories else "N/A"
+    top_pct = counts[0] / total * 100 if total else 0
+    return f"""🥧 PIE / DONUT CHART — {column.upper()}
+
+WHAT THIS CHART IS:
+  Each slice represents one category's share of the whole.
+  Larger slice = larger proportion of all records.
+
+YOUR DATA:
+  • Total records analysed: {total:,}
+  • Largest slice: "{top}" ({top_pct:.1f}%)
+
+HOW TO READ IT:
+  • A near-equal pie → balanced distribution
+  • One dominant slice (> 50%) → one category controls the data
+  • Many tiny slices → consider grouping into "Other"
+
+WHY THIS MATTERS:
+  Proportional thinking is natural for stakeholders.
+  A pie chart instantly communicates market share,
+  customer segment split, or product category mix.
+
+⚠️  CAUTION:
+  Pie charts are hard to read accurately when there are many slices
+  or when values are close.  Use bar charts for precise comparisons.
+
+SUGGESTED ACTION:
+  {"Well-distributed – good representation across categories." if top_pct < 50
+   else f'"{top}" dominates. Consider whether this reflects reality or a data collection bias.'}
 """
-        elif overall_score >= 40:
-            explanation += """
-⚠️ Your data has issues. You should:
-   1. Clean the data (handle missing values)
-   2. Investigate outliers
-   3. Document all changes made
-   4. Note limitations in conclusions
+
+def explain_missing_data(total_missing: int, cols_missing: Dict[str, int],
+                          total_rows: int) -> str:
+    worst = sorted(cols_missing.items(), key=lambda x: x[1], reverse=True)[:5]
+    worst_str = "\n".join(
+        f"  • {c}: {v} missing ({v/total_rows*100:.1f}%)  → {_missing_severity(v/total_rows*100)}"
+        for c, v in worst
+    )
+    overall_pct = total_missing / max(1, total_rows * max(1, len(cols_missing))) * 100
+    return f"""❓ MISSING DATA CHART
+
+WHAT THIS CHART IS:
+  Each bar shows what percentage of values are MISSING
+  (blank / null / NaN) for that column.
+  Longer bar = more data is absent.
+
+OVERALL:
+  • Total missing cells: {total_missing:,}
+  • Overall missing rate: {overall_pct:.1f}%
+
+WORST COLUMNS:
+{worst_str}
+
+SEVERITY GUIDE:
+  < 2%  ✅ Excellent – ignore or use simple fill
+  2–10% ✅ Good – median / mode imputation is fine
+  10–25% ⚠️ Moderate – use advanced imputation (KNN, model-based)
+  25–50% ⚠️ High – consider dropping the column
+  > 50%  ❌ Critical – column is mostly empty, likely unusable
+
+WHY THIS MATTERS:
+  Missing data can silently bias your analysis.
+  Statistical tests and machine-learning models often fail
+  or give wrong results if missing values are ignored.
+
+SUGGESTED ACTION:
+  Address columns with > 10% missing data before any modelling.
 """
-        else:
-            explanation += """
-❌ Your data needs significant work. You should:
-   1. Investigate root causes of missing data
-   2. Clean and validate data thoroughly
-   3. Consider if dataset is usable
-   4. Document all assumptions made
+
+def explain_summary_dashboard(numeric_cols: List[str]) -> str:
+    return f"""📊 NUMERIC SUMMARY DASHBOARD
+
+WHAT THIS CHART IS:
+  Four side-by-side bar charts comparing key statistics
+  across all {len(numeric_cols)} numeric columns at once:
+
+  TOP-LEFT:    Mean – the average value for each column
+  TOP-RIGHT:   Std Dev – how spread out values are (higher = more variable)
+  BOTTOM-LEFT: Range – the gap between the minimum and maximum value
+  BOTTOM-RIGHT:Count – how many non-empty values exist per column
+
+HOW TO READ IT:
+  • High std dev relative to mean → volatile, unpredictable column
+  • Low count relative to total rows → many missing values
+  • Very large range → potential outliers or data entry errors
+
+WHY THIS MATTERS:
+  You can compare multiple columns simultaneously without scrolling
+  through individual statistics tables — ideal for a quick sanity-check.
+
+SUGGESTED ACTION:
+  Flag any column where the count is much lower than the total rows
+  (missing data concern) or std dev is larger than the mean
+  (high variability that may need normalisation).
 """
-        
-        return explanation.strip()
-    
-    # ===== HELPER METHODS =====
-    
-    def _interpret_skewness(self, skewness_text: str) -> str:
-        """Provide interpretation of skewness"""
-        interpretations = {
-            'Fairly Symmetric': 'Your values are balanced on both sides',
-            'Right Skewed (Positive)': 'You have more low values with some high outliers',
-            'Left Skewed (Negative)': 'You have more high values with some low outliers'
-        }
-        return interpretations.get(skewness_text, '')
-    
-    def _interpret_correlation(self, value: float) -> str:
-        """Provide business interpretation of correlation value"""
-        abs_val = abs(value)
-        direction = "positive (both increase)" if value > 0 else "negative (opposite)"
-        
-        if abs_val > 0.9:
-            return f"VERY STRONG {direction} relationship - these move almost identically"
-        elif abs_val > 0.7:
-            return f"STRONG {direction} relationship - these tend to move together"
-        elif abs_val > 0.5:
-            return f"MODERATE {direction} relationship - some connection exists"
-        elif abs_val > 0.3:
-            return f"WEAK {direction} relationship - slight connection"
-        else:
-            return "NO meaningful relationship"
-    
-    def _outlier_recommendation(self, percentage: float) -> str:
-        """Recommend action based on outlier percentage"""
-        if percentage == 0:
-            return "✅ No outliers found - data looks clean!"
-        elif percentage < 1:
-            return "✅ Very few outliers (< 1%) - normal variation, data is clean"
-        elif percentage < 5:
-            return "✓ Reasonable number of outliers (1-5%) - investigate but may be valid"
-        else:
-            return "⚠️ Many outliers (> 5%) - investigate thoroughly before analysis"
-    
-    def _missing_data_status(self, percentage: float) -> str:
-        """Determine status based on missing percentage"""
-        if percentage < 2:
-            return "✅ Excellent - Almost no missing data"
-        elif percentage < 5:
-            return "✅ Good - Minimal missing data"
-        elif percentage < 20:
-            return "✓ Acceptable - Can be handled"
-        elif percentage < 50:
-            return "⚠️ Significant - Needs attention"
-        else:
-            return "❌ Critical - Needs major cleaning"
-    
-    def _completeness_interpretation(self, score: float) -> str:
-        """Interpret completeness score"""
-        if score >= 95:
-            return "Nearly perfect - almost no missing values"
-        elif score >= 80:
-            return "Good - only a few missing values"
-        elif score >= 60:
-            return "Acceptable - some gaps exist"
-        else:
-            return "Poor - many missing values"
-    
-    def _outlier_quality_interpretation(self, score: float) -> str:
-        """Interpret outlier quality score"""
-        if score >= 90:
-            return "Excellent - almost no outliers"
-        elif score >= 75:
-            return "Good - few outliers"
-        elif score >= 50:
-            return "Moderate - noticeable outliers"
-        else:
-            return "Poor - many outliers"
 
 
-# ============================================================================
-# MAIN FUNCTIONS FOR EASY USE
-# ============================================================================
+# ── master dispatcher ─────────────────────────────────────────────────────────
 
-def generate_all_chart_explanations(eda_stats: Dict[str, Any], 
-                                   chart_data: Dict[str, Any]) -> Dict[str, str]:
+def generate_chart_explanations(eda_stats: Dict[str, Any],
+                                 chart_data: Dict[str, Any]) -> Dict[str, str]:
     """
-    Generate explanations for all charts
-    
-    Args:
-        eda_stats: Statistics from EDA engine
-        chart_data: Chart data from charts module
-    
+    Generate plain-language explanations for every chart produced.
+
     Returns:
-        Dictionary of chart explanations
+        Dict mapping chart_key → explanation string
     """
-    
-    explainer = ChartExplainer()
-    explanations = {}
-    
-    # Distribution explanations
-    if 'distributions' in chart_data:
-        for dist in chart_data['distributions']:
-            col_name = dist.get('column', 'Unknown')
-            col_stats = eda_stats.get('descriptive_stats', {}).get(col_name, {})
-            dist_analysis = eda_stats.get('distribution_analysis', {}).get(col_name, {})
-            
-            combined_stats = {**col_stats, **dist_analysis}
-            explanations[f'distribution_{col_name}'] = explainer.explain_distribution_chart(
-                col_name, combined_stats
-            )
-    
-    # Boxplot explanations
-    if 'boxplots' in chart_data:
-        outlier_info = eda_stats.get('outlier_analysis', {})
-        for boxplot in chart_data['boxplots']:
-            col_name = boxplot.get('column', 'Unknown')
-            col_stats = eda_stats.get('descriptive_stats', {}).get(col_name, {})
-            col_outliers = outlier_info.get(col_name, {})
-            
-            combined_stats = {**col_stats}
-            combined_stats['outlier_count'] = col_outliers.get('count', 0)
-            combined_stats['outlier_percentage'] = col_outliers.get('percentage', 0)
-            
-            explanations[f'boxplot_{col_name}'] = explainer.explain_boxplot(
-                col_name, combined_stats
-            )
-    
-    # Correlation explanation
-    if chart_data.get('correlation'):
-        strong_corr = eda_stats.get('strong_correlations', [])
-        numeric_cols = list(eda_stats.get('descriptive_stats', {}).keys())
-        explanations['correlation_heatmap'] = explainer.explain_correlation_heatmap(
-            strong_corr, len(numeric_cols)
+    explanations: Dict[str, str] = {}
+    desc  = eda_stats.get("descriptive_stats", {})
+    dist  = eda_stats.get("distribution_analysis", {})
+    oinfo = eda_stats.get("outlier_analysis", {})
+    cat_a = eda_stats.get("categorical_analysis", {})
+
+    # --- Histograms ---
+    for item in chart_data.get("distributions", []):
+        col = item["column"]
+        combined = {**desc.get(col, {}), **dist.get(col, {})}
+        explanations[f"histogram_{col}"] = explain_histogram(col, combined)
+
+    # --- KDE ---
+    for item in chart_data.get("kde_plots", []):
+        col = item["column"]
+        combined = {**desc.get(col, {}), **dist.get(col, {})}
+        explanations[f"kde_{col}"] = explain_kde(col, combined)
+
+    # --- Scatter ---
+    for item in chart_data.get("scatter_plots", []):
+        x, y = item["x_column"], item["y_column"]
+        explanations[f"scatter_{x}_vs_{y}"] = explain_scatter(x, y, item["correlation"])
+
+    # --- Line ---
+    for item in chart_data.get("line_charts", []):
+        col = item["column"]
+        explanations[f"line_{col}"] = explain_line(col)
+
+    # --- Categorical Bar ---
+    for item in chart_data.get("categorical_distributions", []):
+        col = item["column"]
+        n   = item.get("unique_values", cat_a.get(col, {}).get("unique_values", 0))
+        top = item.get("top_category", "N/A")
+        cnt = item.get("top_count", 0)
+        explanations[f"catbar_{col}"] = explain_categorical_bar(col, top, cnt, n)
+
+    # --- Box Plots ---
+    for item in chart_data.get("boxplots", []):
+        col  = item["column"]
+        oi   = oinfo.get(col, {})
+        explanations[f"boxplot_{col}"] = explain_boxplot(
+            col, item["q1"], item["median"], item["q3"],
+            oi.get("count", 0), oi.get("percentage", 0)
         )
-    
-    # Missing data explanation
-    if chart_data.get('missing_data_heatmap'):
-        missing_summary = eda_stats.get('missing_data_summary', {})
-        missing_by_col = eda_stats.get('missing_values', {})
-        explanations['missing_data'] = explainer.explain_missing_data(
-            missing_summary, missing_by_col
+
+    # --- Violin ---
+    for item in chart_data.get("violin_plots", []):
+        num_col = item.get("num_column") or item.get("column", "")
+        cat_col = item.get("cat_column")
+        explanations[f"violin_{num_col}"] = explain_violin(num_col, cat_col)
+
+    # --- Correlation Heatmap ---
+    if chart_data.get("correlation"):
+        explanations["correlation_heatmap"] = explain_correlation_heatmap(
+            eda_stats.get("strong_correlations", [])
         )
-    
-    # Categorical explanations
-    if 'categorical_distributions' in chart_data:
-        cat_analysis = eda_stats.get('categorical_analysis', {})
-        for cat_chart in chart_data['categorical_distributions']:
-            col_name = cat_chart.get('column', 'Unknown')
-            cat_dist = cat_analysis.get(col_name, {}).get('value_distribution', {})
-            
-            explanations[f'categorical_{col_name}'] = explainer.explain_categorical_distribution(
-                col_name, cat_dist
-            )
-    
+
+    # --- Pair Plot ---
+    pp = chart_data.get("pair_plot")
+    if pp:
+        explanations["pair_plot"] = explain_pair_plot(pp["columns"], pp.get("hue"))
+
+    # --- Bubble ---
+    for item in chart_data.get("bubble_charts", []):
+        key = f"bubble_{item['x_column']}_vs_{item['y_column']}"
+        explanations[key] = explain_bubble(
+            item["x_column"], item["y_column"], item["size_column"]
+        )
+
+    # --- Pie ---
+    for item in chart_data.get("pie_charts", []):
+        col = item["column"]
+        explanations[f"pie_{col}"] = explain_pie(
+            col, item.get("categories", []), item.get("counts", [])
+        )
+
+    # --- Missing Data ---
+    md = chart_data.get("missing_data_heatmap")
+    if md:
+        explanations["missing_data"] = explain_missing_data(
+            md["total_missing"],
+            md.get("columns_with_missing", {}),
+            eda_stats.get("shape", {}).get("rows", 1)
+        )
+
+    # --- Summary Dashboard ---
+    if chart_data.get("numeric_summary_stats"):
+        cols = list(desc.keys())
+        explanations["summary_dashboard"] = explain_summary_dashboard(cols)
+
     return explanations
 
 
-def generate_dataset_summary(eda_stats: Dict[str, Any]) -> str:
-    """
-    Generate plain-language summary of entire dataset
-    
-    Args:
-        eda_stats: Statistics from EDA engine
-    
-    Returns:
-        Plain language summary
-    """
-    
-    shape = eda_stats.get('shape', {})
-    quality = eda_stats.get('data_quality_score', {})
-    missing = eda_stats.get('missing_data_summary', {})
-    numeric_cols = eda_stats.get('descriptive_stats', {})
-    
-    summary = f"""
-📊 YOUR DATASET AT A GLANCE
+def generate_summary_explanation(eda_stats: Dict[str, Any]) -> str:
+    shape   = eda_stats.get("shape", {})
+    quality = eda_stats.get("data_quality_score", {})
+    missing = eda_stats.get("missing_data_summary", {})
+    n_num   = len(eda_stats.get("descriptive_stats", {}))
+    n_cat   = len(eda_stats.get("categorical_analysis", {}))
+    n_corr  = len(eda_stats.get("strong_correlations", []))
+    n_out   = eda_stats.get("total_outliers", 0)
+
+    return f"""📋 YOUR DATASET AT A GLANCE
+═══════════════════════════════════════════
 
 SIZE:
-• Records: {shape.get('rows', 0):,} (rows)
-• Fields: {shape.get('columns', 0)} (columns)
-• Total data points: {shape.get('rows', 0) * shape.get('columns', 0):,}
+  • {shape.get('rows', 0):,} records  ×  {shape.get('columns', 0)} columns
+  • {n_num} numeric columns, {n_cat} categorical columns
 
-QUALITY:
-• Overall Score: {quality.get('overall_score', 0)}/100 ({quality.get('interpretation', 'Unknown')})
-• Complete Data: {quality.get('completeness_score', 0)}%
-• Outlier Quality: {quality.get('outlier_quality_score', 0)}%
+DATA QUALITY:
+  • Overall score:    {quality.get('overall_score', 0):.1f} / 100  ({quality.get('interpretation', 'N/A')})
+  • Completeness:     {quality.get('completeness_score', 0):.1f} / 100
+  • Outlier quality:  {quality.get('outlier_quality_score', 0):.1f} / 100
 
-DATA COMPLETENESS:
-• Missing Values: {missing.get('total_missing', 0)} cells
-• Missing Percentage: {missing.get('missing_percentage', 0)}%
+MISSING DATA:
+  • {missing.get('total_missing', 0):,} empty cells  ({missing.get('missing_percentage', 0):.1f}% of all data)
+  • {_missing_severity(missing.get('missing_percentage', 0))}
 
-NUMERIC FIELDS FOUND: {len(numeric_cols)}
-CATEGORICAL FIELDS: {len(eda_stats.get('categorical_analysis', {}))}
+RELATIONSHIPS:
+  • {n_corr} strong correlation{"s" if n_corr != 1 else ""} found (|r| > 0.7)
+  • {n_out:,} outlier{"s" if n_out != 1 else ""} detected across all numeric columns
 
-STRONG RELATIONSHIPS:
-Found {len(eda_stats.get('strong_correlations', []))} strong correlations
-
-UNUSUAL VALUES:
-Found {eda_stats.get('total_outliers', 0)} outliers in total
-
-READINESS FOR ANALYSIS:
+READINESS:
+  {"✅ Data is in good shape – proceed with analysis." if quality.get('overall_score', 0) >= 70
+   else "⚠️ Address data quality issues before drawing conclusions."}
 """
-    
-    explainer = ChartExplainer()
-    quality_exp = explainer.generate_data_quality_explanation(quality)
-    summary += quality_exp
-    
-    return summary
 
 
-def get_interpretation_guides() -> Dict[str, str]:
-    """
-    Get beginner's guides for all chart types
-    
-    Returns:
-        Dictionary with interpretation guides
-    """
-    explainer = ChartExplainer()
-    return explainer.generate_interpretation_guide()
-
-
-if __name__ == "__main__":
-    # Test the explainer with sample data
-    print("Chart Explainability Module Test")
-    print("=" * 50)
-    
-    # Create sample statistics
-    sample_stats = {
-        'mean': 45.3,
-        'median': 44.0,
-        'std': 12.5,
-        'min': 18,
-        'max': 80,
-        'q1': 35,
-        'q3': 55,
-        'skewness_interpretation': 'Fairly Symmetric'
+def generate_chart_interpretation_guide() -> Dict[str, str]:
+    """Return a beginner's guide for all chart types."""
+    return {
+        "histogram": (
+            "A histogram splits your data into ranges and counts how many records fall into each. "
+            "Tall bars = common values.  It answers: 'What values appear most often?'"
+        ),
+        "kde": (
+            "A KDE (Kernel Density Estimate) is a smooth histogram.  "
+            "It shows where values are concentrated without the blockiness of bars. "
+            "Peaks = most frequent values."
+        ),
+        "scatter": (
+            "A scatter plot places two variables on X and Y axes, one dot per record. "
+            "A diagonal pattern = the variables move together (correlation). "
+            "A random cloud = no relationship."
+        ),
+        "line": (
+            "A line chart traces values over sequence/time.  "
+            "Rising line = increasing trend.  Zigzag = high variability."
+        ),
+        "categorical_bar": (
+            "Bar heights show how many records belong to each category. "
+            "Use it to see if one group dominates or if categories are balanced."
+        ),
+        "boxplot": (
+            "The box covers the middle 50% of values.  "
+            "The line inside = median.  Dots outside = outliers. "
+            "A short box = consistent data; a tall box = high variability."
+        ),
+        "violin": (
+            "A violin is a box plot with a density curve wrapped around it. "
+            "Wide sections show where most values concentrate. "
+            "Multiple bumps = multiple sub-groups."
+        ),
+        "heatmap": (
+            "Each cell shows the correlation between two columns. "
+            "Dark red = strong positive link; dark blue = strong inverse link; "
+            "white = no connection."
+        ),
+        "pair_plot": (
+            "A grid of scatter plots for all pairs of numeric columns at once. "
+            "Diagonal = individual distributions.  Scan the grid for diagonal patterns."
+        ),
+        "bubble": (
+            "Like a scatter plot but bubble SIZE encodes a third numeric variable. "
+            "Large bubble in top-right = high on all three dimensions."
+        ),
+        "pie": (
+            "Each slice = one category's proportion of the total. "
+            "Bigger slice = more common.  Best for 2–7 categories."
+        ),
+        "missing_data": (
+            "Bar length shows what % of that column is empty/null. "
+            "Red = critical, orange = moderate, green = acceptable."
+        ),
+        "summary_dashboard": (
+            "Four mini-charts comparing Mean, Std Dev, Range, and Count "
+            "across all numeric columns simultaneously.  Quick sanity-check view."
+        ),
     }
-    
-    # Test distribution explanation
-    explainer = ChartExplainer()
-    print("\n1. DISTRIBUTION CHART EXPLANATION:")
-    print("-" * 50)
-    dist_exp = explainer.explain_distribution_chart('age', sample_stats)
-    print(dist_exp)
-    
-    # Test boxplot explanation
-    print("\n2. BOXPLOT EXPLANATION:")
-    print("-" * 50)
-    boxplot_exp = explainer.explain_boxplot('age', {**sample_stats, 'outlier_count': 3, 'outlier_percentage': 1.2})
-    print(boxplot_exp)
-    
-    # Test interpretation guides
-    print("\n3. INTERPRETATION GUIDES:")
-    print("-" * 50)
-    guides = explainer.generate_interpretation_guide()
-    for guide_type, guide_text in guides.items():
-        print(f"\n{guide_type.upper()}:")
-        print(guide_text[:200] + "...")
+
+
+# backwards-compatible aliases (keep old names working) ─────────────────────
+
+def generate_all_chart_explanations(eda_stats, chart_data):
+    return generate_chart_explanations(eda_stats, chart_data)
+
+def generate_dataset_summary(eda_stats):
+    return generate_summary_explanation(eda_stats)
+
+def get_interpretation_guides():
+    return generate_chart_interpretation_guide()
+
+
+# ── ChartExplainer class (legacy-compatible) ─────────────────────────────────
+
+class ChartExplainer:
+    """Thin class wrapper kept for backwards compatibility."""
+
+    def explain_distribution_chart(self, col, stats):
+        return explain_histogram(col, stats)
+
+    def explain_boxplot(self, col, stats):
+        return explain_boxplot(
+            col,
+            stats.get("q1", 0), stats.get("median", 0), stats.get("q3", 0),
+            stats.get("outlier_count", 0), stats.get("outlier_percentage", 0)
+        )
+
+    def explain_correlation_heatmap(self, correlations, total_vars):
+        return explain_correlation_heatmap(correlations)
+
+    def explain_missing_data(self, missing_summary, missing_by_column):
+        rows = missing_summary.get("total_missing", 1)
+        return explain_missing_data(
+            missing_summary.get("total_missing", 0),
+            {c: v.get("count", 0) for c, v in missing_by_column.items()},
+            rows
+        )
+
+    def explain_categorical_distribution(self, col, value_dist):
+        top = list(value_dist.keys())[0] if value_dist else "N/A"
+        cnt = list(value_dist.values())[0] if value_dist else 0
+        return explain_categorical_bar(col, top, cnt, len(value_dist))
+
+    def generate_data_quality_explanation(self, quality):
+        score = quality.get("overall_score", 0)
+        label = quality.get("interpretation", "Unknown")
+        return (
+            f"\n  Overall Quality: {score}/100 ({label})\n"
+            f"  → {'Proceed with analysis.' if score >= 70 else 'Fix data quality issues first.'}\n"
+        )
+
+    def generate_interpretation_guide(self):
+        return generate_chart_interpretation_guide()
+
+    def _interpret_skewness(self, label):
+        return label
+
+    def _interpret_correlation(self, val):
+        return _corr_strength(val)
+
+    def _outlier_recommendation(self, pct):
+        return _outlier_advice(pct)
+
+    def _missing_data_status(self, pct):
+        return _missing_severity(pct)
