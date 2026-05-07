@@ -5,6 +5,7 @@ import UploadZone from './components/UploadZone';
 import InsightCard from './components/InsightCard';
 import ChartPanel from './components/ChartPanel';
 import StatsTable from './components/StatsTable';
+import ChartExplain from './components/ChartExplain';
 
 function AnalysisApp() {
   const navigate = useNavigate();
@@ -248,10 +249,45 @@ function AnalysisApp() {
     };
   }, []);
 
-  const API_BASE = 'https://insight-forge-production-0b14.up.railway.app';
+  const API_BASE = 'http://localhost:8000';
 
   const handleFileSelect = (selectedFile) => {
     setFile(selectedFile);
+  };
+
+  const handleImageExplain = () => {
+    if (!file) {
+      setError('Please select an image file first');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE}/explain/image`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || `HTTP Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setResults(data);
+        setMode('image');
+      } catch (err) {
+        setError(`Image explanation failed: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   const sendAnalysisRequest = async (endpoint) => {
@@ -324,6 +360,7 @@ function AnalysisApp() {
                 <UploadZone
                   onAnalyze={handleAnalyze}
                   onBaseline={handleBaseline}
+                  onImageExplain={handleImageExplain}
                   file={file}
                   isLoading={loading}
                   onFileSelect={handleFileSelect}
@@ -350,6 +387,12 @@ function AnalysisApp() {
               <div className={`mode-badge ${mode === 'baseline' ? 'baseline' : 'structured'}`}>
                 {mode === 'baseline' ? 'Baseline Analysis' : 'Structured Analysis'}
               </div>
+
+              {mode === 'baseline' && results.comparison_note && (
+                <div className="error-card" style={{ background: '#F8F6F1', borderColor: '#D6D0C4', color: '#4A4A4A' }}>
+                  {results.comparison_note}
+                </div>
+              )}
 
               {/* Stats Cards */}
               {results.stats && (
@@ -388,12 +431,17 @@ function AnalysisApp() {
                 </div>
               )}
 
-              {/* Charts */}
-              {results.charts && (
+              {/* Charts or Image Explanation */}
+              {mode === 'image' && results && (
                 <div className="charts-container">
-                  <ChartPanel charts={results.charts} />
+                  <ChartExplain result={results} file={file} />
                 </div>
               )}
+              {results.charts && mode !== 'image' && (
+  <div className="charts-container">
+    <ChartPanel charts={results.charts} stats={results.stats} mode={mode} />
+  </div>
+)}
 
               {/* Reset Button */}
               <div className="reset-button-container">

@@ -1,0 +1,135 @@
+import pandas as pd
+import numpy as np
+from typing import Dict, Any, List, Tuple
+from math import isfinite
+
+# Append these functions to backend/app/eda_engine.py
+
+def explain_outliers(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, Any]:
+    """
+    Explain outliers detected via IQR method for each numeric column.
+    Returns explanation narrative for each column with outliers.
+    """
+    outlier_explanations = {}
+    
+    for col in numeric_cols:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        outlier_mask = (df[col] < lower_bound) | (df[col] > upper_bound)
+        outlier_count = outlier_mask.sum()
+        outlier_pct = (outlier_count / len(df)) * 100 if len(df) > 0 else 0
+        
+        if outlier_count > 0:
+            outlier_values = df.loc[outlier_mask, col]
+            min_outlier = outlier_values.min()
+            max_outlier = outlier_values.max()
+            
+            narrative = (
+                f"'{col}' contains {outlier_count} outlier(s) ({outlier_pct:.1f}% of data). "
+                f"Using the IQR method (1.5 × IQR rule), outliers are values < {lower_bound:.2f} or > {upper_bound:.2f}. "
+                f"Detected outliers range from {min_outlier:.2f} to {max_outlier:.2f}. "
+                f"These may represent genuine extremes, measurement errors, or special cases worth investigating."
+            )
+        else:
+            narrative = f"'{col}' contains no outliers detected by the IQR method, suggesting a stable distribution without extreme values."
+        
+        outlier_explanations[col] = {
+            'count': int(outlier_count),
+            'percentage': float(outlier_pct),
+            'lower_bound': float(lower_bound),
+            'upper_bound': float(upper_bound),
+            'narrative': narrative
+        }
+    
+    return outlier_explanations
+
+
+def explain_distributions(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, Any]:
+    """
+    Explain the distribution characteristics of numeric columns.
+    """
+    dist_explanations = {}
+    
+    for col in numeric_cols:
+        try:
+            mean = df[col].mean()
+            median = df[col].median()
+            std = df[col].std()
+            skewness = df[col].skew()
+            
+            # Interpret skewness
+            if abs(skewness) < 0.5:
+                skew_desc = "approximately symmetric"
+            elif skewness > 0:
+                skew_desc = "right-skewed (tail on the right)"
+            else:
+                skew_desc = "left-skewed (tail on the left)"
+            
+            # Interpret spread
+            if std < (max(df[col]) - min(df[col])) * 0.1:
+                spread_desc = "tightly concentrated"
+            else:
+                spread_desc = "widely spread"
+            
+            narrative = (
+                f"The distribution of '{col}' is {skew_desc} with mean={mean:.2f} and median={median:.2f}. "
+                f"Values are {spread_desc} with a standard deviation of {std:.2f}. "
+                f"The range is {df[col].min():.2f} to {df[col].max():.2f}."
+            )
+            
+            dist_explanations[col] = {
+                'mean': float(mean),
+                'median': float(median),
+                'std': float(std),
+                'skewness': float(skewness),
+                'skew_description': skew_desc,
+                'narrative': narrative
+            }
+        except Exception as e:
+            dist_explanations[col] = {
+                'narrative': f"Could not compute distribution statistics: {str(e)}"
+            }
+    
+    return dist_explanations
+
+
+def explain_correlation_matrix(df: pd.DataFrame, numeric_cols: List[str]) -> str:
+    """
+    Generate a narrative explanation of the overall correlation structure.
+    """
+    if len(numeric_cols) < 2:
+        return "Insufficient numeric columns to compute correlation matrix."
+    
+    corr = df[numeric_cols].corr()
+    
+    # Find strongest correlations
+    pairs = []
+    for i, col1 in enumerate(numeric_cols):
+        for col2 in numeric_cols[i+1:]:
+            r = corr.loc[col1, col2]
+            if isfinite(r):
+                pairs.append((col1, col2, float(r)))
+    
+    pairs.sort(key=lambda x: abs(x[2]), reverse=True)
+    
+    # Build narrative
+    strong_pairs = [p for p in pairs if abs(p[2]) >= 0.6]
+    moderate_pairs = [p for p in pairs if 0.4 <= abs(p[2]) < 0.6]
+    
+    narrative = "Correlation Matrix Summary: "
+    
+    if strong_pairs:
+        narrative += f"Found {len(strong_pairs)} strong relationship(s): "
+        narrative += "; ".join([f"{p[0]} & {p[1]} (r={p[2]:.2f})" for p in strong_pairs[:3]])
+    
+    if moderate_pairs:
+        narrative += f". Also found {len(moderate_pairs)} moderate relationship(s). "
+    
+    if not strong_pairs and not moderate_pairs:
+        narrative += "Most variables show weak or negligible correlations."
+    
+    return narrative
