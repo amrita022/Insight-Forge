@@ -86,35 +86,34 @@ def detect_chart_type(extracted_text: str) -> str:
 
     # --- HEURISTIC DETECTION (when keywords missing) ---
 
-    # Box plot: look for Method/Teaching + Score pattern + quartile/median indicators
+
     has_method_score = ('method' in text or 'teaching' in text) and ('score' in text or 'value' in text)
     has_quartile_words = any(word in text for word in ['median', 'quartile', 'q1', 'q2', 'q3', 'iqr'])
     has_multiple_labels = len(short_alpha_lines) >= 3  # Method 1, Method 2, Method 3, etc.
     if has_method_score and (has_quartile_words or has_multiple_labels):
         return 'box_plot'
 
-    # Line chart: look for model/series names + performance/time words + many numeric points
+  
     has_model_names = any(word in text for word in ['claude', 'opus', 'sonnet', 'haiku', 'model'])
     has_perf_words = any(word in text for word in ['performance', 'score', 'token', 'input', 'length', 'accuracy'])
     has_many_values = len(numeric_tokens) >= 10  # Multiple series with multiple points
     if has_model_names and (has_perf_words or has_many_values):
         return 'line_chart'
 
-    # Histogram: keep this stricter so line charts with numeric axes are not misclassified.
+    
     has_freq_words = any(word in text for word in ['frequency', 'histogram', 'bin'])
     has_distribution_words = 'distribution' in text and not has_model_names
     has_single_axis_label = len(short_alpha_lines) == 1 or ('height' in text or 'age' in text or 'salary' in text)
     if has_freq_words or (has_distribution_words and has_single_axis_label and len(numeric_tokens) >= 5):
         return 'histogram'
 
-    # Scatter plot: two axis labels + many numeric ticks + relation/trend cue
+   
     has_two_axis_like_labels = len(short_alpha_lines) >= 2
     has_dense_ticks = len(numeric_tokens) >= 8
     has_relation_cue = any(word in text for word in ['income', 'index', 'relationship', 'vs', 'health', 'correlation', 'metric'])
     if has_two_axis_like_labels and has_dense_ticks and has_relation_cue:
         return 'scatter_plot'
 
-    # Fallback line-chart detection: ordered labels + trend wording
     has_trend_words = any(word in text for word in ['trend', 'over time', 'increase', 'decrease', 'change', 'improvement'])
     has_time_labels = any(word in text for word in ['jan', 'feb', 'mar', 'q1', 'q2', 'q3', 'q4', 'year', '2024', '2025'])
     if has_dense_ticks and (has_trend_words or has_time_labels):
